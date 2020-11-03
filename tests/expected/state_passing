@@ -1,0 +1,11 @@
+  Library
+    return_count()
+       ✓  should return 1 (0ms)
+       ✓  should return 1 again (0ms)
+    return_incr_count()
+       ✓  should return 2 (0ms)
+    return_two()
+       ✓  should return 2 (0ms)
+
+
+  ✓ 4 tests completed (0ms)

@@ -1,14 +1,16 @@
-
 // Here we will define a struct with
 // two members, an associated function,
 // and two methods.
-struct Foo {
+struct CountedLine {
     line: String,
-    count: i32
+    count: i32,
 }
-impl Foo {
-    pub fn new() -> Foo {
-        Foo { line: String::new(), count: 0 }
+impl CountedLine {
+    pub fn new() -> CountedLine {
+        CountedLine {
+            line: String::new(),
+            count: 0,
+        }
     }
     pub fn append(&mut self, str: &str) {
         self.line += str;
@@ -18,10 +20,10 @@ impl Foo {
     }
 }
 
-fn main () {
-    let mut foo = Foo::new();
-    foo.append("fizzbuzz");
-    foo.increase();
+fn main() {
+    let mut counted_line = CountedLine::new();
+    counted_line.append("fizzbuzz");
+    counted_line.increase();
 }
 
 #[cfg(test)]
@@ -31,61 +33,43 @@ mod tests {
     use super::*;
 
     // Now pull in the lab tools
-    use laboratory::{describe, it, expect};
+    use laboratory::{describe, expect};
 
     // define single test
     #[test]
     fn test() {
-
         // Now we can describe Foo.
         // Notice the "suites" method that takes a Vec
         // as its argument. This is where we can describe
         // Foo's members and methods.
-        describe("Foo").suites(vec![
-
-            // Here we describe the "new" associated function
-            describe("#new()").specs(vec![
-
-                it("should return an instance of Foo with two members", |_| {
-
-                    let foo = Foo::new();
-                    expect(foo.line).to_be(String::new())?;
-                    expect(foo.count).to_equal(0)
-
-                })
-
-            ]),
-
-            // Now we will describe the "append" method
-            describe("#append()").specs(vec![
-
-                it("should append \"fizzbuzz\" to Foo#line", |_| {
-
-                    let mut foo = Foo::new();
-                    foo.append("fizzbuzz");
-                    expect(foo.line).to_be("fizzbuzz".to_string())
-
-                })
-
-            ]),
-
-            // Finally, we will describe the "increase" method
-            describe("#increase()").specs(vec![
-
-                it("should increase Foo#count by 1", |_| {
-
-                    let mut foo = Foo::new();
+        describe("Foo")
+            .suites(vec![
+                // Here we describe the "new" associated function
+                describe("#new()").specs(vec![it(
+                    "should return an instance of Foo with two members",
+                    |_| {
+                        let foo = CountedLine::new();
+                        expect(foo.line).to_be(String::new())?;
+                        expect(foo.count).to_equal(0)
+                    },
+                )]),
+                // Now we will describe the "append" method
+                describe("#append()").specs(vec![it(
+                    "should append \"fizzbuzz\" to Foo#line",
+                    |_| {
+                        let mut foo = CountedLine::new();
+                        foo.append("fizzbuzz");
+                        expect(foo.line).to_be("fizzbuzz".to_string())
+                    },
+                )]),
+                // Finally, we will describe the "increase" method
+                describe("#increase()").specs(vec![it("should increase Foo#count by 1", |_| {
+                    let mut foo = CountedLine::new();
                     foo.increase();
                     expect(foo.count).to_equal(1)
-
-                })
-
+                })]),
             ])
-
-        ]).in_microseconds().run();
-
+            .in_microseconds()
+            .run();
     }
-
 }
-
-

@@ -1,7 +1,7 @@
   Library
     add_one()
        ✓  should return 1 (0ms)
-          should return 1
+          should return 3
     return_two()
        ✓  should return 2 (0ms)
 

@@ -1,5 +1,8 @@
 /target
 
+# vscode intermediate artifacts
+/dist
+
 #test output files
 /tests/output/
 

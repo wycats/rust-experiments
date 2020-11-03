@@ -1,0 +1,21 @@
+[package]
+name = "styled-macros"
+version = "0.1.0"
+authors = ["Yehuda Katz <wycats@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0.48", features = ["full", "extra-traits"] }
+quote = "1.0.7"
+styled = { path = "../styled" }
+proc-macro2 = "1.0.24"
+proc-macro-error = "1.0.4"
+tt-call = "1.0.7"
+
+[build-dependencies]
+rustc_version = "0.3.0"

@@ -1,0 +1,14 @@
+frag!([Red: "hello"] stringy [Green: "world"]);
+---
+error[E0277]: `Stringy` doesn't implement `std::fmt::Display`
+  --> $DIR/didnt-implement-trait.rs:14:26
+   |
+14 |     frag!([Red: "hello"] stringy [Green: "world"]);
+   |     ---------------------^^^^^^^-------------------
+   |     |                    |
+   |     |                    `Stringy` cannot be formatted with the default formatter
+   |     required by this bound in `main::to_string`
+   |
+   = help: the trait `std::fmt::Display` is not implemented for `Stringy`
+   = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+   = note: required because of the requirements on the impl of `ToStyledString` for `Stringy`

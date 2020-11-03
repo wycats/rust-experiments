@@ -1,119 +1,127 @@
-use std::time::{Instant, Duration};
-use serde::{Deserialize, Serialize};
+use derive_new::new;
+use getset::Getters;
+use laboratory_expectations::{traits::MatchResult, MatchError};
 
-#[derive(Deserialize, Serialize)]
-pub struct SpecResult {
-    name: String,
-    full_name: String,
-    pass: Option<bool>,
-    error_msg: Option<String>,
-    // pub time_started: String,
-    // pub time_ended: String,
-    duration: Duration
+use std::{
+    fmt::Display,
+    time::{Duration, Instant},
+};
+
+use crate::{suite::DurationWithPrecision, DurationPrecision};
+
+#[derive(Debug, Clone)]
+pub struct SpecDesc {
+    pub name: String,
+    pub suite_name: String,
 }
-impl SpecResult {
-    pub fn new(
-        suite_name: &str,
-        name: &str,
-        pass: Option<bool>,
-        err_msg: &Option<String>,
-        time_started: Option<Instant>) -> SpecResult {
-        let pass = match pass {
-            Some(result) => Some(result),
-            None => None
-        };
-        let error_msg = match err_msg {
-            Some(result) => Some(result.clone()),
-            None => None
-        };
-        let duration = match time_started {
-            Some(instant) => instant.elapsed(),
-            None => Duration::new(0,0)
-        };
-        SpecResult {
-            name: name.to_string(),
-            full_name: format!("{} {}", suite_name, name),
-            pass,
-            error_msg,
+
+#[derive(Debug, Clone)]
+pub struct ReporterSpecInfo {
+    pub name: String,
+    pub suite_name: String,
+    pub number: usize,
+}
+
+impl ReporterSpecInfo {
+    pub(crate) fn done(&self, status: SpecStatus, duration: DurationWithPrecision) -> SpecInfo {
+        SpecInfo {
+            name: self.name.clone(),
+            suite_name: self.suite_name.clone(),
+            number: self.number,
+            status,
             duration,
         }
     }
-    pub fn get_pass(&self) -> Option<bool> {
-        self.pass
-    }
-    pub fn update_passing(&self) -> u64 {
-        match self.pass {
-            Some(is_passing) => {
-                if is_passing {
-                    1
-                } else {
-                    0
-                }
-            },
-            None => 0
-        }
-    }
-    pub fn update_failing(&self) -> u64 {
-        match self.pass {
-            Some(is_passing) => {
-                if is_passing {
-                    0
-                } else {
-                    1
-                }
-            },
-            None => 0
-        }
-    }
-    pub fn update_ignored(&self) -> u64 {
-        match self.pass {
-            Some(_) => 0,
-            None => 1
-        }
-    }
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-    pub fn get_duration(&self) -> &Duration {
-        &self.duration
-    }
-    pub fn get_full_name(&self) -> &str { &self.full_name }
-    pub fn get_err_msg(&self) -> &str {
-        match &self.error_msg {
-            Some(err_msg) => err_msg,
-            None => ""
-        }
-    }
-}
 
-impl Clone for SpecResult {
-    fn clone (&self) -> SpecResult {
-        let pass = match &self.pass {
-            Some(result) => Some(*result),
-            None => None
-        };
-        let error_msg = match &self.error_msg {
-            Some(result) => Some(result.clone()),
-            None => None
-        };
-        SpecResult {
+    pub(crate) fn skipped(&self, precision: DurationPrecision) -> SpecInfo {
+        let duration = Instant::now().elapsed();
+
+        SpecInfo {
             name: self.name.clone(),
-            full_name: self.full_name.clone(),
-            pass,
-            error_msg,
-            duration: self.duration,
+            suite_name: self.suite_name.clone(),
+            number: self.number,
+            status: SpecStatus::Skipped,
+            duration: DurationWithPrecision::new(duration, precision),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Clone, Getters)]
+pub struct SpecInfo {
+    #[get = "pub"]
+    pub name: String,
+    #[get = "pub"]
+    pub suite_name: String,
+    #[get = "pub"]
+    pub number: usize,
+    #[get = "pub"]
+    pub status: SpecStatus,
+    #[get = "pub"]
+    pub duration: DurationWithPrecision,
+}
 
-    #[test]
-    fn err_msg_spec() {
-        let r = SpecResult::new("name", "name", None, &None, None);
-        assert_eq!(r.get_err_msg(), "");
+#[derive(Debug, Clone, new)]
+pub struct FinishedSpec {
+    pub(crate) desc: SpecDesc,
+    pub(crate) result: SpecStatus,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct SuccessResult {
+    duration: Duration,
+}
+
+#[derive(Debug, Clone)]
+pub struct ErrorResult {
+    error: String,
+    duration: Duration,
+}
+
+impl Display for ErrorResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum SpecStatus {
+    Success,
+    Failure(MatchError),
+    Skipped,
+}
+
+impl FinishedSpec {
+    pub fn skipped(suite_name: impl Into<String>, name: impl Into<String>) -> FinishedSpec {
+        FinishedSpec {
+            desc: SpecDesc {
+                name: name.into(),
+                suite_name: suite_name.into(),
+            },
+            result: SpecStatus::Skipped,
+        }
     }
 
+    pub fn ran(
+        suite_name: impl Into<String>,
+        name: impl Into<String>,
+        result: MatchResult,
+    ) -> FinishedSpec {
+        let (name, suite_name) = (name.into(), suite_name.into());
+
+        FinishedSpec {
+            desc: SpecDesc { name, suite_name },
+            result: match result {
+                Ok(_) => SpecStatus::Success,
+                Err(err) => SpecStatus::Failure(err),
+            },
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.desc.name
+    }
+
+    pub fn get_suite_name(&self) -> &str {
+        &self.desc.suite_name
+    }
 }

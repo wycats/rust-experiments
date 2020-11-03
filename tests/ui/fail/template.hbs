@@ -1,0 +1,15 @@
+use styled_macros::frag;
+struct Stringy {
+    value: String,
+}
+impl Stringy {
+    fn value(&self) -> &str {
+        &self.value
+    }
+}
+fn main() {
+    let stringy = Stringy {
+        value: "Niko".to_string(),
+    };
+    {{{code}}}
+}
