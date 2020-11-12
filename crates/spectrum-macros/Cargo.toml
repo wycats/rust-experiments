@@ -1,5 +1,5 @@
 [package]
-name = "styled-macros"
+name = "spectrum-macros"
 version = "0.1.0"
 authors = ["Yehuda Katz <wycats@gmail.com>"]
 edition = "2018"
@@ -12,7 +12,7 @@ proc-macro = true
 [dependencies]
 syn = { version = "1.0.48", features = ["full", "extra-traits"] }
 quote = "1.0.7"
-styled = { path = "../styled" }
+spectrum = { path = "../spectrum" }
 proc-macro2 = "1.0.24"
 proc-macro-error = "1.0.4"
 tt-call = "1.0.7"

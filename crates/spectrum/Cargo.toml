@@ -1,17 +1,16 @@
 [package]
-name = "laboratory-expectations"
-version = "0.1.0"
+name = "spectrum"
+version = "0.0.0"
 authors = ["Yehuda Katz <wycats@gmail.com>"]
 edition = "2018"
+description = "A library for building structured, colorful output. Under heavy development, and doesn't work yet"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 derive-new = "0.5.8"
-ansi_term = "0.12.1"
-getset = "0.1.1"
-format = "0.2.3"
-console = "0.13.0"
 indexmap = "1.6.0"
+console = "0.13.0"
 itertools = "0.9.0"
-styled = { path = "../styled" }
+format = "0.2.3"
+pretty = "0.10.0"

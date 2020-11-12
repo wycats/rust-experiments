@@ -1,5 +1,5 @@
 mod emit;
-mod macros;
+mod structure;
 
 pub use console::Color;
 pub use emit::error::*;

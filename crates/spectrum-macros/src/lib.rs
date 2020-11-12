@@ -16,8 +16,8 @@ pub fn frag(input: TokenStream) -> TokenStream {
     let Fragment { exprs } = parse_macro_input!(input);
 
     let expanded = quote! {{
-        extern crate styled;
-        use styled::{Color, Style, StyledLine, StyledString, StyledFragment};
+        extern crate spectrum;
+        use spectrum::{Color, Style, StyledLine, StyledString, StyledFragment};
 
         let mut v: Vec<StyledFragment> = Vec::new();
 

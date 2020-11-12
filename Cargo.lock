@@ -204,6 +204,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dissimilar"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc4b29f4b9bb94bf267d57269fd0706d343a160937108e9619fe380645428abb"
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -362,30 +368,16 @@ dependencies = [
  "handlebars",
  "humantime",
  "indexmap",
- "laboratory-expectations",
  "laboratory-test-helpers",
  "pretty_assertions",
  "serde",
  "serde_json",
- "styled",
- "styled-macros",
+ "spectrum",
+ "spectrum-macros",
  "term",
  "trybuild",
  "type-map",
-]
-
-[[package]]
-name = "laboratory-expectations"
-version = "0.1.0"
-dependencies = [
- "ansi_term 0.12.1",
- "console",
- "derive-new",
- "format",
- "getset",
- "indexmap",
- "itertools",
- "styled",
+ "veritas",
 ]
 
 [[package]]
@@ -479,6 +471,16 @@ dependencies = [
  "maplit",
  "pest",
  "sha-1",
+]
+
+[[package]]
+name = "pretty"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad9940b913ee56ddd94aec2d3cd179dd47068236f42a1a6415ccf9d880ce2a61"
+dependencies = [
+ "arrayvec",
+ "typed-arena",
 ]
 
 [[package]]
@@ -686,25 +688,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "styled"
-version = "0.1.0"
+name = "spectrum"
+version = "0.0.0"
 dependencies = [
  "console",
  "derive-new",
  "format",
  "indexmap",
  "itertools",
+ "pretty",
 ]
 
 [[package]]
-name = "styled-macros"
+name = "spectrum-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.24",
  "quote 1.0.7",
  "rustc_version",
- "styled",
+ "spectrum",
  "syn 1.0.48",
  "tt-call",
 ]
@@ -775,6 +778,7 @@ version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7d30fe369fd650072b352b1a9cb9587669de6b89be3b8225544012c1c45292d"
 dependencies = [
+ "dissimilar",
  "glob",
  "lazy_static",
  "serde",
@@ -797,6 +801,12 @@ checksum = "9d2741b1474c327d95c1f1e3b0a2c3977c8e128409c572a33af2914e7d636717"
 dependencies = [
  "fxhash",
 ]
+
+[[package]]
+name = "typed-arena"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0685c84d5d54d1c26f7d3eb96cd41550adb97baed141a761cf335d3d33bcd0ae"
 
 [[package]]
 name = "typenum"
@@ -827,6 +837,21 @@ name = "unicode-xid"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
+
+[[package]]
+name = "veritas"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "console",
+ "derive-new",
+ "dissimilar",
+ "format",
+ "getset",
+ "indexmap",
+ "itertools",
+ "spectrum",
+]
 
 [[package]]
 name = "version_check"

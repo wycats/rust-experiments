@@ -17,9 +17,9 @@ license = "MIT"
 [workspace]
 members = [
   "crates/test-helpers",
-  "crates/expectations",
-  "crates/styled",
-  "crates/styled-macros",
+  "crates/veritas",
+  "crates/spectrum",
+  "crates/spectrum-macros",
 ]
 
 #publish = false
@@ -37,7 +37,7 @@ derefable = "0.1.0"
 derive-new = "0.5.8"
 humantime = "2.0.1"
 getset = "0.1.1"
-laboratory-expectations = { path = "./crates/expectations" }
+veritas = { path = "./crates/veritas" }
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
@@ -45,9 +45,9 @@ difference = "2.0.0"
 term = "0.6.1"
 ansi_term = "0.12.1"
 laboratory-test-helpers = { path = "./crates/test-helpers" }
-styled-macros = { path = "./crates/styled-macros" }
-styled = { path = "./crates/styled" }
-trybuild = "1.0.35"
+spectrum-macros = { path = "./crates/spectrum-macros" }
+spectrum = { path = "./crates/spectrum" }
+trybuild = { version = "1.0.35", features = ["diff"] }
 
 [build-dependencies]
 handlebars = "3.5.1"

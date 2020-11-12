@@ -20,10 +20,10 @@ impl ToTokens for Bracketed {
         let Self { style, value } = self;
 
         tokens.extend(quote! {{
-            extern crate styled;
+            extern crate spectrum;
 
-            use styled::{Color, StyledString, Style};
-            let string = StyledString::new(#value.to_string(), Style::default().fg(Color::#style));
+            use spectrum::{Color, StyledString, Style};
+            let string = StyledString::new((#value).to_string(), Style::default().fg(Color::#style));
             string.into()
         }})
     }
@@ -115,7 +115,7 @@ impl ToTokens for FragmentItem {
             FragmentItem::Bracketed(bracketed) => tokens.append_all(Some(bracketed)),
             FragmentItem::String(expr) => {
                 let quoted = quote_using! {
-                    [Style, StyledString, styled::ToStyledString] => {
+                    [Style, StyledString, spectrum::ToStyledString] => {
                         use #ToStyledString;
 
                         #StyledString::new((#expr).to_styled_string(), #Style::default()).into()
@@ -126,7 +126,7 @@ impl ToTokens for FragmentItem {
             }
             FragmentItem::Expr(expr) => {
                 tokens.extend(quote_using! {
-                    [Style, StyledString, styled::ToStyledString] => {
+                    [Style, StyledString, spectrum::ToStyledString] => {
                         fn to_string(t: impl #ToStyledString) -> String { t.to_styled_string() }
                         let expr = to_string(#expr);
 

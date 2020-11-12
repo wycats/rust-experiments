@@ -15,6 +15,8 @@ use super::{
 ///
 /// In general, you should implement [StyledFragmentTrait] and store [StyledFragment].
 pub trait StyledFragmentTrait {
+    fn clone_frag(&self) -> StyledFragment;
+
     fn emit_into_formatter(&self, f: &mut Formatter<'_>, backend: &EmitBackend<'_>) -> EmitResult;
 }
 
@@ -35,7 +37,27 @@ pub struct StyledFragment {
     fragment: Box<dyn StyledFragmentTrait + 'static>,
 }
 
+impl Clone for StyledFragment {
+    fn clone(&self) -> Self {
+        self.clone_frag()
+    }
+}
+
 impl StyledFragment {
+    pub fn new(frag: impl StyledFragmentTrait + 'static) -> StyledFragment {
+        StyledFragment {
+            fragment: Box::new(frag),
+        }
+    }
+
+    pub fn clone_frag(&self) -> StyledFragment {
+        self.fragment.clone_frag()
+    }
+
+    pub fn plain(&self) -> String {
+        self.emit_into_string(EmitPlain).unwrap()
+    }
+
     pub fn emit_into_formatter(
         &self,
         f: &mut Formatter<'_>,
@@ -44,7 +66,11 @@ impl StyledFragment {
         self.fragment.emit_into_formatter(f, backend)
     }
 
-    pub fn emit_into(&self, write: &mut dyn fmt::Write, backend: &EmitBackend<'_>) -> EmitResult {
+    pub fn emit_into(
+        &self,
+        write: &mut dyn std::io::Write,
+        backend: &EmitBackend<'_>,
+    ) -> EmitResult {
         let formatted = format::Display(move |f| Ok(self.emit_into_formatter(f, backend)?));
         Ok(write!(write, "{}", formatted)?)
     }
@@ -56,8 +82,21 @@ impl StyledFragment {
     }
 }
 
+pub struct StyledNewline;
+
+impl StyledFragmentTrait for StyledNewline {
+    fn emit_into_formatter(&self, f: &mut Formatter<'_>, backend: &EmitBackend<'_>) -> EmitResult {
+        backend.emit(f, "\n", &Style::default())
+    }
+
+    fn clone_frag(&self) -> StyledFragment {
+        StyledFragment::new(StyledNewline)
+    }
+}
+
 /// A `StyledString` is the simplest implementation of `StyledFragment`, holding a `String` and a
 /// `Style`.
+#[derive(Debug, Clone)]
 pub struct StyledString {
     string: String,
     style: Style,
@@ -75,6 +114,10 @@ impl StyledString {
 impl StyledFragmentTrait for StyledString {
     fn emit_into_formatter(&self, f: &mut Formatter<'_>, backend: &EmitBackend<'_>) -> EmitResult {
         backend.emit(f, &self.string[..], &self.style)
+    }
+
+    fn clone_frag(&self) -> StyledFragment {
+        StyledFragment::new(self.clone())
     }
 }
 
@@ -97,6 +140,12 @@ impl StyledFragmentTrait for StyledLine {
 
         Ok(())
     }
+
+    fn clone_frag(&self) -> StyledFragment {
+        StyledFragment::new(StyledLine {
+            line: self.line.to_vec(),
+        })
+    }
 }
 
 /// An implementation of `EmitBackendTrait` takes a piece of styled text and emits it into the
@@ -109,6 +158,15 @@ pub trait EmitBackendTrait {
         Self: Sized,
     {
         EmitBackend { backend: self }
+    }
+}
+
+impl<'a, T> From<&'a T> for EmitBackend<'a>
+where
+    T: EmitBackendTrait + 'a,
+{
+    fn from(backend: &'a T) -> Self {
+        backend.emitter()
     }
 }
 

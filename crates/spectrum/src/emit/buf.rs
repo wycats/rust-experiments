@@ -13,7 +13,7 @@ impl Buf {
     }
 
     pub fn collect_string(
-        callback: impl FnOnce(&mut dyn fmt::Write) -> fmt::Result,
+        callback: impl FnOnce(&mut dyn io::Write) -> fmt::Result,
     ) -> Result<String, fmt::Error> {
         let mut buf = Buf::default();
         callback(&mut buf)?;

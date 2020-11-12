@@ -1,5 +1,5 @@
 [package]
-name = "styled"
+name = "veritas"
 version = "0.1.0"
 authors = ["Yehuda Katz <wycats@gmail.com>"]
 edition = "2018"
@@ -8,7 +8,11 @@ edition = "2018"
 
 [dependencies]
 derive-new = "0.5.8"
-indexmap = "1.6.0"
-console = "0.13.0"
-itertools = "0.9.0"
+ansi_term = "0.12.1"
+getset = "0.1.1"
 format = "0.2.3"
+console = "0.13.0"
+indexmap = "1.6.0"
+itertools = "0.9.0"
+spectrum = { path = "../spectrum" }
+dissimilar = "1.0.2"

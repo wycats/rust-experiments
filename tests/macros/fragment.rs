@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use styled::{EmitForTest, EmitPlain, EmitResult, StyledFragment};
-use styled_macros::frag;
+use spectrum::{EmitForTest, EmitPlain, EmitResult, StyledFragment};
+use spectrum_macros::frag;
 
 fn plain(frag: &StyledFragment) -> EmitResult<String> {
     frag.emit_into_string(EmitPlain)
@@ -90,13 +90,13 @@ fn test_block() -> EmitResult {
         => plain: "hellovalue-1world\ngoodbyevalue-2world"
         => colored: "[Red:hello][normal:value-1][Green:world]\n[Red:goodbye][normal:value-2][Green:world]" );
 
-    // test_case!(([Red: "hello"] stringy.value() [Green: "world"])
-    //     => plain: "helloNikoworld"
-    //     => colored: "[Red:hello][normal:Niko][Green:world]" );
+    test_case!(([Red: "hello"] stringy.value() [Green: "world"] ; [Red: stringy.value()])
+        => plain: "helloNikoworld\nNiko"
+        => colored: "[Red:hello][normal:Niko][Green:world]\n[Red:Niko]" );
 
-    // test_case!(([Red: "hello"] (1 + 1) [Green: "world"])
-    //     => plain: "hello2world"
-    //     => colored: "[Red:hello][normal:2][Green:world]" );
+    test_case!(([Red: "hello"] (1 + 1) [Green: "world"] ; [Red: 1 + 1])
+        => plain: "hello2world\n2"
+        => colored: "[Red:hello][normal:2][Green:world]\n[Red:2]" );
 
     Ok(())
 }
@@ -113,7 +113,6 @@ fn ui() {
         ui_tests.join("fail/*.rs").display().to_string()
     );
 
-    // t.pass("tests/ui/pass/*.rs");
     t.pass(ui_tests.join("pass/*.rs").display().to_string());
     t.compile_fail(ui_tests.join("fail/*.rs").display().to_string());
 }
