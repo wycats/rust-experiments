@@ -701,7 +701,7 @@ dependencies = [
 
 [[package]]
 name = "spectrum-macros"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.24",
