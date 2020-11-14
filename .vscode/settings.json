@@ -23,6 +23,7 @@
   "rust-analyzer.procMacro.enable": true,
   "rust-analyzer.cargo.allFeatures": true,
   "rust-analyzer.checkOnSave.allFeatures": true,
+  "rust-analyzer.checkOnSave.allTargets": true,
   "rust-analyzer.diagnostics.enableExperimental": false,
   "rust-analyzer.files.watcher": "notify",
   "rust-analyzer.lens.methodReferences": true,

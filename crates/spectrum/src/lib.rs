@@ -7,3 +7,4 @@ pub use emit::fragment::*;
 pub use emit::into::ToStyledString;
 pub use emit::style::*;
 pub use emit::test::EmitForTest;
+pub use structure::*;

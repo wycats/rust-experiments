@@ -1,4 +1,8 @@
-use std::{fmt, fmt::Formatter, io::Write};
+use std::{
+    fmt,
+    fmt::{Debug, Formatter},
+    io::Write,
+};
 
 use super::{
     buf::Buf,
@@ -14,8 +18,8 @@ use super::{
 /// `fmt::Write`, and `emit_into_string`, which takes a backend and produces a `String`.
 ///
 /// In general, you should implement [StyledFragmentTrait] and store [StyledFragment].
-pub trait StyledFragmentTrait {
-    fn clone_frag(&self) -> StyledFragment;
+pub trait StyledFragmentTrait: Debug {
+    fn dynamic(&self) -> StyledFragment;
 
     fn emit_into_formatter(&self, f: &mut Formatter<'_>, backend: &EmitBackend<'_>) -> EmitResult;
 }
@@ -33,13 +37,14 @@ where
 
 /// A [StyledFragment] is a concrete value that represents an implementation of
 /// [StyledFragmentTrait].
+#[derive(Debug)]
 pub struct StyledFragment {
     fragment: Box<dyn StyledFragmentTrait + 'static>,
 }
 
 impl Clone for StyledFragment {
     fn clone(&self) -> Self {
-        self.clone_frag()
+        self.dynamic()
     }
 }
 
@@ -50,8 +55,8 @@ impl StyledFragment {
         }
     }
 
-    pub fn clone_frag(&self) -> StyledFragment {
-        self.fragment.clone_frag()
+    pub fn dynamic(&self) -> StyledFragment {
+        self.fragment.dynamic()
     }
 
     pub fn plain(&self) -> String {
@@ -82,6 +87,7 @@ impl StyledFragment {
     }
 }
 
+#[derive(Debug)]
 pub struct StyledNewline;
 
 impl StyledFragmentTrait for StyledNewline {
@@ -89,7 +95,7 @@ impl StyledFragmentTrait for StyledNewline {
         backend.emit(f, "\n", &Style::default())
     }
 
-    fn clone_frag(&self) -> StyledFragment {
+    fn dynamic(&self) -> StyledFragment {
         StyledFragment::new(StyledNewline)
     }
 }
@@ -111,17 +117,61 @@ impl StyledString {
     }
 }
 
+impl Into<StyledString> for &'_ str {
+    fn into(self) -> StyledString {
+        StyledString {
+            string: self.into(),
+            style: Style::default(),
+        }
+    }
+}
+
+impl Into<StyledFragment> for &'_ str {
+    fn into(self) -> StyledFragment {
+        StyledString {
+            string: self.into(),
+            style: Style::default(),
+        }
+        .dynamic()
+    }
+}
+
+impl<T, U> Into<StyledString> for (T, U)
+where
+    T: Into<String>,
+    U: Into<Style>,
+{
+    fn into(self) -> StyledString {
+        StyledString {
+            string: self.0.into(),
+            style: self.1.into(),
+        }
+    }
+}
+
+impl<T, U> Into<StyledFragment> for (T, U)
+where
+    T: Into<String>,
+    U: Into<Style>,
+{
+    fn into(self) -> StyledFragment {
+        let string: StyledString = self.into();
+        string.dynamic()
+    }
+}
+
 impl StyledFragmentTrait for StyledString {
     fn emit_into_formatter(&self, f: &mut Formatter<'_>, backend: &EmitBackend<'_>) -> EmitResult {
         backend.emit(f, &self.string[..], &self.style)
     }
 
-    fn clone_frag(&self) -> StyledFragment {
+    fn dynamic(&self) -> StyledFragment {
         StyledFragment::new(self.clone())
     }
 }
 
 /// A [StyledLine] is a list of [StyledFragment]s, intended to be laid out on a single line
+#[derive(Debug)]
 pub struct StyledLine {
     line: Vec<StyledFragment>,
 }
@@ -141,7 +191,7 @@ impl StyledFragmentTrait for StyledLine {
         Ok(())
     }
 
-    fn clone_frag(&self) -> StyledFragment {
+    fn dynamic(&self) -> StyledFragment {
         StyledFragment::new(StyledLine {
             line: self.line.to_vec(),
         })

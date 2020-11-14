@@ -691,11 +691,13 @@ dependencies = [
 name = "spectrum"
 version = "0.0.0"
 dependencies = [
+ "arrayvec",
  "console",
  "derive-new",
  "format",
  "indexmap",
  "itertools",
+ "lazy_static",
  "pretty",
 ]
 

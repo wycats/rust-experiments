@@ -78,6 +78,24 @@ pub struct Style {
     attrs: IndexSet<Attribute>,
 }
 
+impl From<console::Color> for Style {
+    fn from(color: console::Color) -> Self {
+        Style::default().fg(color)
+    }
+}
+
+impl From<Attribute> for Style {
+    fn from(attr: Attribute) -> Self {
+        Style::default().attr(attr)
+    }
+}
+
+impl From<console::Attribute> for Style {
+    fn from(attr: console::Attribute) -> Self {
+        Style::default().attr(Attribute { attr })
+    }
+}
+
 impl Default for Style {
     fn default() -> Self {
         Style::new()
@@ -138,7 +156,6 @@ impl Debug for Style {
         let Self { fg, bg, attrs } = self;
 
         let mut desc = String::new();
-        let mut short = true;
 
         match (fg, bg) {
             (Some(fg), None) => {
@@ -146,33 +163,23 @@ impl Debug for Style {
             }
             (None, Some(bg)) => {
                 desc.push_str(&format!("normal on {:?}", bg));
-                short = false;
             }
             (None, None) => {
                 desc.push_str("normal");
             }
             (Some(fg), Some(bg)) => {
                 desc.push_str(&format!("{:?} on {:?}", fg, bg));
-                short = false;
             }
         }
 
         let mut debug_attrs = String::new();
 
         for attr in itertools::sorted(attrs.iter()) {
-            debug_attrs.push_str(", ");
+            debug_attrs.push(',');
 
             debug_attrs.push_str(&format!("{:?}", attr));
         }
 
-        if !debug_attrs.is_empty() {
-            short = false;
-        }
-
-        if short {
-            write!(f, "{}", desc)
-        } else {
-            write!(f, "[{}{}]", desc, debug_attrs)
-        }
+        write!(f, "{}{}", desc, debug_attrs)
     }
 }
