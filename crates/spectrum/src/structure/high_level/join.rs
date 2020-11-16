@@ -4,22 +4,22 @@ use super::{Primitive, Render, Structure};
 
 use crate::{structure::HighLevel, NonemptyList};
 
-pub trait DelimitedExt {
-    fn delimited(self, delimiter: impl Into<Structure>) -> Structure;
-    fn delimited_trailing(self, delimiter: impl Into<Structure>) -> Structure;
+pub trait JoinExt {
+    fn join(self, delimiter: impl Into<Structure>) -> Structure;
+    fn join_trailing(self, delimiter: impl Into<Structure>) -> Structure;
 }
 
-impl DelimitedExt for Vec<Structure> {
-    fn delimited(self, delimiter: impl Into<Structure>) -> Structure {
-        Structure::HighLevel(HighLevel::DelimitedList(Box::new(DelimitedList {
+impl JoinExt for Vec<Structure> {
+    fn join(self, delimiter: impl Into<Structure>) -> Structure {
+        Structure::HighLevel(HighLevel::DelimitedList(Box::new(JoinList {
             delimiter: delimiter.into(),
             items: self.into(),
             trailing: false,
         })))
     }
 
-    fn delimited_trailing(self, delimiter: impl Into<Structure>) -> Structure {
-        Structure::HighLevel(HighLevel::DelimitedList(Box::new(DelimitedList {
+    fn join_trailing(self, delimiter: impl Into<Structure>) -> Structure {
+        Structure::HighLevel(HighLevel::DelimitedList(Box::new(JoinList {
             delimiter: delimiter.into(),
             items: self.into(),
             trailing: true,
@@ -28,13 +28,13 @@ impl DelimitedExt for Vec<Structure> {
 }
 
 #[derive(Debug, Clone, new)]
-pub struct DelimitedList {
+pub struct JoinList {
     delimiter: Structure,
     items: NonemptyList<Structure>,
     trailing: bool,
 }
 
-impl Render for DelimitedList {
+impl Render for JoinList {
     fn into_primitive(self, recursive: bool) -> Primitive {
         let mut list = Primitive::Empty;
 
@@ -82,12 +82,12 @@ mod tests {
     }
 
     #[test]
-    fn high_level_delimited() -> Result<(), Box<dyn Error>> {
+    fn high_level_join() -> Result<(), Box<dyn Error>> {
         let red = frag(("it-is-red", Color::Red));
         let blue = frag(("it-is-blue", Color::Blue));
         let bold = frag(("it-is-bold", Attribute::Bold));
 
-        let structure = Group(vec![red, blue, bold].delimited(GAP));
+        let structure = Group(vec![red, blue, bold].join(GAP));
 
         assert_eq!(
             render(&structure, &EmitForTest, 50)?,
