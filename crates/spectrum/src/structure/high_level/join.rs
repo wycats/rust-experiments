@@ -2,15 +2,21 @@ use derive_new::new;
 
 use super::{Primitive, Render, Structure};
 
-use crate::{structure::HighLevel, NonemptyList};
+use crate::{string::copy_string::StringContext, structure::HighLevel, NonemptyList};
 
-pub trait JoinExt {
-    fn join(self, delimiter: impl Into<Structure>) -> Structure;
-    fn join_trailing(self, delimiter: impl Into<Structure>) -> Structure;
+pub trait JoinExt<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn join(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx>;
+    fn join_trailing(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx>;
 }
 
-impl JoinExt for Vec<Structure> {
-    fn join(self, delimiter: impl Into<Structure>) -> Structure {
+impl<Ctx> JoinExt<Ctx> for Vec<Structure<Ctx>>
+where
+    Ctx: StringContext,
+{
+    fn join(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx> {
         Structure::HighLevel(HighLevel::DelimitedList(Box::new(JoinList {
             delimiter: delimiter.into(),
             items: self.into(),
@@ -18,7 +24,7 @@ impl JoinExt for Vec<Structure> {
         })))
     }
 
-    fn join_trailing(self, delimiter: impl Into<Structure>) -> Structure {
+    fn join_trailing(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx> {
         Structure::HighLevel(HighLevel::DelimitedList(Box::new(JoinList {
             delimiter: delimiter.into(),
             items: self.into(),
@@ -27,15 +33,34 @@ impl JoinExt for Vec<Structure> {
     }
 }
 
-#[derive(Debug, Clone, new)]
-pub struct JoinList {
-    delimiter: Structure,
-    items: NonemptyList<Structure>,
+#[derive(Debug, new)]
+pub struct JoinList<Ctx>
+where
+    Ctx: StringContext,
+{
+    delimiter: Structure<Ctx>,
+    items: NonemptyList<Structure<Ctx>>,
     trailing: bool,
 }
 
-impl Render for JoinList {
-    fn into_primitive(self, recursive: bool) -> Primitive {
+impl<Ctx> Clone for JoinList<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn clone(&self) -> Self {
+        JoinList {
+            delimiter: self.delimiter.clone(),
+            items: self.items.clone(),
+            trailing: self.trailing,
+        }
+    }
+}
+
+impl<Ctx> Render<Ctx> for JoinList<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into_primitive(self, recursive: bool) -> Primitive<Ctx> {
         let mut list = Primitive::Empty;
 
         let Self {
@@ -65,29 +90,31 @@ impl Render for JoinList {
 
 #[cfg(test)]
 mod tests {
-    use crate::{structure::prelude::*, GAP};
+    use crate::{
+        string::copy_string::StringContext, structure::prelude::*, Style, StyledString, GAP,
+    };
     use std::error::Error;
 
     use console::{Attribute, Color};
 
-    use crate::{
-        structure::{test::render, Primitive},
-        EmitForTest, StyledFragment,
-    };
+    use crate::{structure::test::render, EmitForTest};
 
     use super::*;
 
-    fn frag(frag: impl Into<StyledFragment>) -> Structure {
-        Structure::Primitive(Primitive::Fragment(frag.into()))
+    fn frag<Ctx>(s: &'static str, style: impl Into<Style>) -> Structure<Ctx>
+    where
+        Ctx: StringContext,
+    {
+        Structure::fragment(StyledString::str(s, style.into()))
     }
 
     #[test]
     fn high_level_join() -> Result<(), Box<dyn Error>> {
-        let red = frag(("it-is-red", Color::Red));
-        let blue = frag(("it-is-blue", Color::Blue));
-        let bold = frag(("it-is-bold", Attribute::Bold));
+        let red = frag("it-is-red", Color::Red);
+        let blue = frag("it-is-blue", Color::Blue);
+        let bold = frag("it-is-bold", Attribute::Bold);
 
-        let structure = Group(vec![red, blue, bold].join(GAP));
+        let structure = Group(vec![red, blue, bold].join(GAP()));
 
         assert_eq!(
             render(&structure, &EmitForTest, 50)?,

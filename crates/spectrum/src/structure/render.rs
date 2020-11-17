@@ -1,6 +1,6 @@
 use derive_new::new;
 
-use crate::{Primitive, StyledDoc};
+use crate::{string::copy_string::StringContext, Primitive, StyledDoc};
 
 #[derive(Debug, Copy, Clone)]
 pub enum Nesting {
@@ -71,18 +71,28 @@ impl RenderState {
     }
 }
 
-pub trait Render: Sized {
-    fn render(self) -> StyledDoc {
-        self.render_with_state(&RenderState::default())
+pub trait Render<Ctx>: Sized
+where
+    Ctx: StringContext,
+{
+    fn render(self) -> StyledDoc<Ctx>
+    where
+        Ctx: StringContext<CustomRepr = ()>,
+    {
+        self.render_with_state(&RenderState::default(), &Ctx::default())
     }
 
-    fn render_with_config(self, config: RenderConfig) -> StyledDoc {
-        self.render_with_state(&RenderState::top(config))
+    fn render_with(self, ctx: &Ctx) -> StyledDoc<Ctx> {
+        self.render_with_state(&RenderState::default(), ctx)
     }
 
-    fn render_with_state(self, state: &RenderState) -> StyledDoc {
-        self.into_primitive(true).render_with_state(state)
+    fn render_with_config(self, config: RenderConfig, ctx: &Ctx) -> StyledDoc<Ctx> {
+        self.render_with_state(&RenderState::top(config), ctx)
     }
 
-    fn into_primitive(self, recursive: bool) -> Primitive;
+    fn render_with_state(self, state: &RenderState, ctx: &Ctx) -> StyledDoc<Ctx> {
+        self.into_primitive(true).render_with_state(state, ctx)
+    }
+
+    fn into_primitive(self, recursive: bool) -> Primitive<Ctx>;
 }

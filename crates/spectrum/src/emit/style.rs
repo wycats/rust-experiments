@@ -1,81 +1,186 @@
+#![allow(clippy::identity_op)]
+
 //! Wrap console::Attribute and console::Style to tweak their behavior (especially debug output)
 
 use derive_new::new;
-use std::{fmt::Debug, hash::Hash};
+use modular_bitfield::bitfield;
+use std::{fmt::Debug, fmt::Display, hash::Hash, ops::BitOr, ops::BitOrAssign};
 
-use indexmap::IndexSet;
-
-#[derive(Copy, Clone)]
-pub struct Attribute {
-    attr: console::Attribute,
+#[bitfield]
+#[repr(u8)]
+#[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Debug, Default)]
+pub struct Attributes {
+    bold: bool,
+    dim: bool,
+    italic: bool,
+    underlined: bool,
+    blink: bool,
+    reverse: bool,
+    hidden: bool,
+    #[skip]
+    __: bool,
 }
 
-impl Debug for Attribute {
+impl Attributes {
+    pub fn insert(&mut self, attrs: impl Into<Attributes>) {
+        *self = Attributes::from(u8::from(*self) | u8::from(attrs.into()))
+    }
+
+    pub fn has_any_attr(self) -> bool {
+        self.bold()
+            || self.dim()
+            || self.italic()
+            || self.underlined()
+            || self.blink()
+            || self.reverse()
+            || self.hidden()
+    }
+
+    pub fn is_empty(self) -> bool {
+        !self.has_any_attr()
+    }
+}
+
+macro_rules! match_attr {
+    ($attr:expr, {
+        bold => $bold:expr,
+        dim => $dim:expr,
+        italic => $italic:expr,
+        underlined => $underlined:expr,
+        blink => $blink:expr,
+        reverse => $reverse:expr,
+        hidden => $hidden:expr
+    } => $($apply:tt)*) => {
+        if $attr.bold() {
+            $($apply)*($bold)
+        }
+
+        if $attr.dim() {
+            $($apply)*($dim)
+        }
+
+        if $attr.italic() {
+            $($apply)*($italic)
+        }
+
+        if $attr.underlined() {
+            $($apply)*($underlined)
+        }
+
+        if $attr.blink() {
+            $($apply)*($blink)
+        }
+
+        if $attr.reverse() {
+            $($apply)*($reverse)
+        }
+
+        if $attr.hidden() {
+            $($apply)*($hidden)
+        }
+    };
+}
+
+impl Display for Attributes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self.attr {
-                console::Attribute::Bold => "bold",
-                console::Attribute::Dim => "dim",
-                console::Attribute::Italic => "italic",
-                console::Attribute::Underlined => "underlined",
-                console::Attribute::Blink => "blink",
-                console::Attribute::Reverse => "reverse",
-                console::Attribute::Hidden => "hidden",
-            }
-        )
+        let mut out: Vec<&'static str> = vec![];
+
+        match_attr!(self, {
+            bold => "bold",
+            dim => "dim",
+            italic => "italic",
+            underlined => "underlined",
+            blink => "blink",
+            reverse => "reverse",
+            hidden => "hidden"
+        } => out.push);
+
+        write!(f, "{}", itertools::join(out, ", "))
     }
 }
 
-impl PartialOrd for Attribute {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.attr.partial_cmp(&other.attr)
-    }
-}
+impl IntoIterator for Attributes {
+    type Item = console::Attribute;
+    type IntoIter = AttributesIterator;
 
-impl Ord for Attribute {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.attr.cmp(&other.attr)
-    }
-}
-
-impl PartialEq for Attribute {
-    fn eq(&self, other: &Self) -> bool {
-        self.attr == other.attr
-    }
-}
-
-impl Eq for Attribute {}
-
-impl Hash for Attribute {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self.attr {
-            console::Attribute::Bold => 0.hash(state),
-            console::Attribute::Dim => 1.hash(state),
-            console::Attribute::Italic => 2.hash(state),
-            console::Attribute::Underlined => 3.hash(state),
-            console::Attribute::Blink => 4.hash(state),
-            console::Attribute::Reverse => 5.hash(state),
-            console::Attribute::Hidden => 6.hash(state),
+    fn into_iter(self) -> Self::IntoIter {
+        AttributesIterator {
+            iterating: self,
+            seen: Attributes::new(),
         }
     }
 }
 
-impl Into<Attribute> for console::Attribute {
-    fn into(self) -> Attribute {
-        Attribute { attr: self }
+impl BitOr for Attributes {
+    type Output = Attributes;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let bytes = u8::from(self) | u8::from(rhs);
+        Attributes::from(bytes)
     }
 }
 
-#[derive(Clone, new)]
+impl BitOrAssign for Attributes {
+    fn bitor_assign(&mut self, rhs: Self) {
+        let bytes = u8::from(*self) | u8::from(rhs);
+        *self = Attributes::from(bytes)
+    }
+}
+
+impl From<console::Attribute> for Attributes {
+    fn from(attr: console::Attribute) -> Attributes {
+        match attr {
+            console::Attribute::Bold => Attributes::new().with_bold(true),
+            console::Attribute::Dim => Attributes::new().with_dim(true),
+            console::Attribute::Italic => Attributes::new().with_italic(true),
+            console::Attribute::Underlined => Attributes::new().with_underlined(true),
+            console::Attribute::Blink => Attributes::new().with_blink(true),
+            console::Attribute::Reverse => Attributes::new().with_reverse(true),
+            console::Attribute::Hidden => Attributes::new().with_hidden(true),
+        }
+    }
+}
+
+pub struct AttributesIterator {
+    seen: Attributes,
+    iterating: Attributes,
+}
+
+macro_rules! iterate_attr {
+    ($self:ident, $field:ident, $set_field:ident, $attr:ident) => {
+        if $self.seen.$field() == false {
+            $self.seen.$set_field(true);
+            if $self.iterating.bold() {
+                return Some(console::Attribute::$attr);
+            }
+        }
+    };
+}
+
+impl Iterator for AttributesIterator {
+    type Item = console::Attribute;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        iterate_attr!(self, bold, set_bold, Bold);
+        iterate_attr!(self, dim, set_dim, Dim);
+        iterate_attr!(self, italic, set_italic, Bold);
+        iterate_attr!(self, underlined, set_underlined, Underlined);
+        iterate_attr!(self, blink, set_blink, Blink);
+        iterate_attr!(self, reverse, set_reverse, Reverse);
+        iterate_attr!(self, hidden, set_hidden, Hidden);
+
+        None
+    }
+}
+
+#[derive(Copy, Clone, new)]
 pub struct Style {
     #[new(value = "None")]
     fg: Option<console::Color>,
     #[new(value = "None")]
     bg: Option<console::Color>,
     #[new(default)]
-    attrs: IndexSet<Attribute>,
+    attrs: Attributes,
 }
 
 impl From<console::Color> for Style {
@@ -84,15 +189,15 @@ impl From<console::Color> for Style {
     }
 }
 
-impl From<Attribute> for Style {
-    fn from(attr: Attribute) -> Self {
+impl From<Attributes> for Style {
+    fn from(attr: Attributes) -> Self {
         Style::default().attr(attr)
     }
 }
 
 impl From<console::Attribute> for Style {
     fn from(attr: console::Attribute) -> Self {
-        Style::default().attr(Attribute { attr })
+        Style::default().attrs(Attributes::from(attr))
     }
 }
 
@@ -103,7 +208,7 @@ impl Default for Style {
 }
 
 impl Style {
-    pub fn apply_to<D>(&self, fragment: D) -> console::StyledObject<D> {
+    pub fn apply_to<D>(self, fragment: D) -> console::StyledObject<D> {
         let style: console::Style = self.into();
         style.apply_to(fragment)
     }
@@ -118,16 +223,14 @@ impl Style {
         self
     }
 
-    pub fn attr(mut self, attr: impl Into<Attribute>) -> Style {
-        self.attrs.insert(attr.into());
+    pub fn attr(mut self, attr: impl Into<Attributes>) -> Style {
+        self.attrs |= attr.into();
         self
     }
-}
 
-impl<'a> From<&'a Style> for console::Style {
-    fn from(style: &'a Style) -> Self {
-        let style = style.clone();
-        style.into()
+    pub fn attrs(mut self, attrs: impl Into<Attributes>) -> Style {
+        self.attrs |= attrs.into();
+        self
     }
 }
 
@@ -144,7 +247,7 @@ impl From<Style> for console::Style {
         }
 
         for attr in style.attrs {
-            console_style = console_style.attr(attr.attr);
+            console_style = console_style.attr(attr);
         }
 
         console_style
@@ -172,14 +275,6 @@ impl Debug for Style {
             }
         }
 
-        let mut debug_attrs = String::new();
-
-        for attr in itertools::sorted(attrs.iter()) {
-            debug_attrs.push(',');
-
-            debug_attrs.push_str(&format!("{:?}", attr));
-        }
-
-        write!(f, "{}{}", desc, debug_attrs)
+        write!(f, "{}{}", desc, attrs)
     }
 }

@@ -1,16 +1,37 @@
 use derive_new::new;
 
-use crate::{structure::render::Render, HighLevel, Primitive, Structure};
+use crate::{
+    string::copy_string::StringContext, structure::render::Render, HighLevel, Primitive, Structure,
+};
 
-#[derive(Debug, Clone, new)]
-pub struct NestedStructure {
-    prefix: Structure,
-    postfix: Structure,
-    body: Structure,
+#[derive(Debug, new)]
+pub struct NestedStructure<Ctx>
+where
+    Ctx: StringContext,
+{
+    prefix: Structure<Ctx>,
+    postfix: Structure<Ctx>,
+    body: Structure<Ctx>,
 }
 
-impl Render for NestedStructure {
-    fn into_primitive(self, recursive: bool) -> Primitive {
+impl<Ctx> Clone for NestedStructure<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn clone(&self) -> Self {
+        NestedStructure {
+            prefix: self.prefix.clone(),
+            postfix: self.postfix.clone(),
+            body: self.body.clone(),
+        }
+    }
+}
+
+impl<Ctx> Render<Ctx> for NestedStructure<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into_primitive(self, recursive: bool) -> Primitive<Ctx> {
         let prefix = self.prefix.into_primitive(recursive);
         let postfix = self.postfix.into_primitive(recursive);
         let body = self.body.into_primitive(recursive);
@@ -23,11 +44,14 @@ impl Render for NestedStructure {
 }
 
 #[allow(non_snake_case)]
-pub fn Nested(
-    prefix: impl Into<Structure>,
-    body: impl Into<Structure>,
-    postfix: impl Into<Structure>,
-) -> Structure {
+pub fn Nested<Ctx>(
+    prefix: impl Into<Structure<Ctx>>,
+    body: impl Into<Structure<Ctx>>,
+    postfix: impl Into<Structure<Ctx>>,
+) -> Structure<Ctx>
+where
+    Ctx: StringContext,
+{
     Structure::HighLevel(HighLevel::Nested(Box::new(NestedStructure {
         prefix: prefix.into(),
         postfix: postfix.into(),
@@ -37,29 +61,29 @@ pub fn Nested(
 
 #[cfg(test)]
 mod tests {
-    use crate::{structure::prelude::*, GAP, GAP_HINT};
+    use crate::{structure::prelude::*, Style, StyledString, GAP, GAP_HINT};
     use std::error::Error;
 
     use console::{Attribute, Color};
 
-    use crate::{
-        structure::{test::render, Primitive},
-        EmitForTest, StyledFragment,
-    };
+    use crate::{structure::test::render, EmitForTest};
 
     use super::*;
 
-    fn frag(frag: impl Into<StyledFragment>) -> Structure {
-        Structure::Primitive(Primitive::Fragment(frag.into()))
+    fn frag<Ctx>(s: &'static str, style: impl Into<Style>) -> Structure<Ctx>
+    where
+        Ctx: StringContext,
+    {
+        Structure::fragment(StyledString::str(s, style.into()))
     }
 
     #[test]
     fn high_level_nested() -> Result<(), Box<dyn Error>> {
-        let red = frag(("it-is-red", Color::Red));
-        let blue = frag(("it-is-blue", Color::Blue));
-        let bold = frag(("it-is-bold", Attribute::Bold));
+        let red = frag("it-is-red", Color::Red);
+        let blue = frag("it-is-blue", Color::Blue);
+        let bold = frag("it-is-bold", Attribute::Bold);
 
-        let structure = Nested("(", vec![red, blue, bold].join(GAP), ")");
+        let structure = Nested("(", vec![red, blue, bold].join(GAP()), ")");
 
         assert_eq!(
             render(&structure, &EmitForTest, 100)?,
@@ -81,11 +105,11 @@ mod tests {
 
     #[test]
     fn high_level_nested_with_break_hints() -> Result<(), Box<dyn Error>> {
-        let red = frag(("it-is-red", Color::Red));
-        let blue = frag(("it-is-blue", Color::Blue));
-        let bold = frag(("it-is-bold", Attribute::Bold));
+        let red = frag("it-is-red", Color::Red);
+        let blue = frag("it-is-blue", Color::Blue);
+        let bold = frag("it-is-bold", Attribute::Bold);
 
-        let structure = Nested("(", vec![red, blue, bold].join(GAP_HINT), ")");
+        let structure = Nested("(", vec![red, blue, bold].join(GAP_HINT()), ")");
 
         assert_eq!(
             render(&structure, &EmitForTest, 100)?,
@@ -107,12 +131,12 @@ mod tests {
 
     #[test]
     fn regular_nest_with_gap_hint() -> TestResult {
-        let red = frag(("it-is-red", Color::Red));
-        let blue = frag(("it-is-blue", Color::Blue));
-        let bold = frag(("it-is-bold", Attribute::Bold));
+        let red = frag("it-is-red", Color::Red);
+        let blue = frag("it-is-blue", Color::Blue);
+        let bold = frag("it-is-bold", Attribute::Bold);
 
         let doc = Doc("(")
-            .append_group(vec![red, blue, bold].join(GAP_HINT).nest())
+            .append_group(vec![red, blue, bold].join(GAP_HINT()).nest())
             .append(")");
 
         assert_eq!(
@@ -135,17 +159,17 @@ mod tests {
 
     #[test]
     fn custom_nest_with_gap_hint() -> TestResult {
-        let red = frag(("it-is-red", Color::Red));
-        let blue = frag(("it-is-blue", Color::Blue));
-        let bold = frag(("it-is-bold", Attribute::Bold));
+        let red = frag("it-is-red", Color::Red);
+        let blue = frag("it-is-blue", Color::Blue);
+        let bold = frag("it-is-bold", Attribute::Bold);
 
         let doc = Doc("(")
             .append_group(
                 vec![red, blue, bold]
-                    .join(GAP_HINT)
+                    .join(GAP_HINT())
                     // only make a newline at first if it's already necessary, but if any newlines
                     // were inserted, make a newline at the end
-                    .wrapping_nest(BOUNDARY_HINT, BOUNDARY),
+                    .wrapping_nest(BOUNDARY_HINT(), BOUNDARY()),
             )
             .append(")");
 

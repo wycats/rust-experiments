@@ -5,40 +5,56 @@ use std::{
 
 use pretty::{Render, RenderAnnotated};
 
-use crate::{EmitBackend, StyledFragment};
+use crate::{string::copy_string::StringContext, EmitBackend, StyledFragment};
 
-pub struct StyledRenderer<'a> {
+pub struct StyledRenderer<'a, Ctx>
+where
+    Ctx: StringContext,
+{
     write: Box<dyn io::Write + 'a>,
     backend: EmitBackend<'a>,
+    ctx: Ctx,
     /// remember whether we saw an annotation, which means we don't need to emit the string when
     /// write_str is called.
     ann: bool,
 }
 
-impl<'a> StyledRenderer<'a> {
+impl<'a, Ctx> StyledRenderer<'a, Ctx>
+where
+    Ctx: StringContext,
+{
     #[allow(unused)]
     pub fn new(
         write: impl io::Write + 'a,
         backend: impl Into<EmitBackend<'a>>,
-    ) -> StyledRenderer<'a> {
+        context: Ctx,
+    ) -> StyledRenderer<'a, Ctx>
+    where
+        Ctx: StringContext,
+    {
         StyledRenderer {
             write: Box::new(write),
             backend: backend.into(),
             ann: false,
+            ctx: context,
         }
     }
 
     #[allow(unused)]
-    pub fn stdout(backend: impl Into<EmitBackend<'a>>) -> StyledRenderer<'a> {
+    pub fn stdout(backend: impl Into<EmitBackend<'a>>, context: Ctx) -> StyledRenderer<'a, Ctx> {
         StyledRenderer {
             write: Box::new(stdout()),
             backend: backend.into(),
             ann: false,
+            ctx: context,
         }
     }
 }
 
-impl<'a> Render for StyledRenderer<'a> {
+impl<'a, Ctx> Render for StyledRenderer<'a, Ctx>
+where
+    Ctx: StringContext,
+{
     type Error = Box<dyn Error>;
 
     fn write_str(&mut self, s: &str) -> Result<usize, Self::Error> {
@@ -59,10 +75,13 @@ impl<'a> Render for StyledRenderer<'a> {
     }
 }
 
-impl<'a> RenderAnnotated<'a, StyledFragment> for StyledRenderer<'_> {
-    fn push_annotation(&mut self, annotation: &'a StyledFragment) -> Result<(), Self::Error> {
+impl<'a, Ctx> RenderAnnotated<'a, StyledFragment<Ctx>> for StyledRenderer<'_, Ctx>
+where
+    Ctx: StringContext,
+{
+    fn push_annotation(&mut self, annotation: &'a StyledFragment<Ctx>) -> Result<(), Self::Error> {
         self.ann = true;
-        Ok(annotation.emit_into(&mut *self.write, &self.backend)?)
+        Ok(annotation.emit_into_with(&mut *self.write, &self.backend, &self.ctx)?)
     }
 
     fn pop_annotation(&mut self) -> Result<(), Self::Error> {
@@ -85,14 +104,14 @@ mod tests {
 
     #[test]
     fn basic_render() -> Result<(), Box<dyn Error>> {
-        let structure =
-            Structure::fragment(StyledString::new("hello", Style::default().fg(Color::Red)))
+        let structure: Structure<()> =
+            Structure::fragment(StyledString::str("hello", Style::default().fg(Color::Red)))
                 .append(Structure::hardline());
 
         let pretty = structure.render();
 
         let string = Buf::collect_string(|write| {
-            let mut renderer = StyledRenderer::new(write, &EmitPlain);
+            let mut renderer = StyledRenderer::new(write, &EmitPlain, ());
             pretty
                 .render_raw(100, &mut renderer)
                 .map_err(|_| std::fmt::Error)
@@ -105,8 +124,8 @@ mod tests {
 
     #[test]
     fn colored_render() -> Result<(), Box<dyn Error>> {
-        let structure =
-            Structure::fragment(StyledString::new("hello", Style::default().fg(Color::Red)))
+        let structure: Structure<()> =
+            Structure::fragment(StyledString::str("hello", Style::default().fg(Color::Red)))
                 .append(Structure::hardline());
 
         let pretty = structure.render();
@@ -114,7 +133,7 @@ mod tests {
         eprintln!("{:#?}", pretty);
 
         let string = Buf::collect_string(|write| {
-            let mut renderer = StyledRenderer::new(write, &EmitForTest);
+            let mut renderer = StyledRenderer::new(write, &EmitForTest, ());
             pretty
                 .render_raw(100, &mut renderer)
                 .map_err(|_| std::fmt::Error)
@@ -127,25 +146,25 @@ mod tests {
 
     #[test]
     fn prettyrs_example() -> Result<(), Box<dyn Error>> {
-        let red = Structure::fragment(StyledString::new(
+        let red = Structure::fragment(StyledString::str(
             "it-is-red",
             Style::default().fg(Color::Red),
         ));
 
-        let blue = Structure::fragment(StyledString::new(
+        let blue = Structure::fragment(StyledString::str(
             "it-is-blue",
             Style::default().fg(Color::Blue),
         ));
 
-        let bold = Structure::fragment(StyledString::new(
+        let bold = Structure::fragment(StyledString::str(
             "it-is-bold",
             Style::default().attr(Attribute::Bold),
         ));
 
         let structure = red
-            .append(GAP)
+            .append(GAP())
             .append(blue)
-            .append(GAP)
+            .append(GAP())
             .append(bold)
             .group();
 

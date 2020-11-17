@@ -1,4 +1,5 @@
 mod emit;
+mod string;
 mod structure;
 
 pub use console::Color;

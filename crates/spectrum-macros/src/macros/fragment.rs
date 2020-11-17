@@ -23,7 +23,7 @@ impl ToTokens for Bracketed {
             extern crate spectrum;
 
             use spectrum::{Color, StyledString, Style};
-            let string = StyledString::new((#value).to_string(), Style::default().fg(Color::#style));
+            let string = spectrum::StyledString::str((#value), Style::default().fg(Color::#style));
             string.into()
         }})
     }
@@ -118,7 +118,7 @@ impl ToTokens for FragmentItem {
                     [Style, StyledString, spectrum::ToStyledString] => {
                         use #ToStyledString;
 
-                        #StyledString::new((#expr).to_styled_string(), #Style::default()).into()
+                        #StyledString::str((#expr), #Style::default()).into()
                     }
                 };
 
@@ -130,13 +130,13 @@ impl ToTokens for FragmentItem {
                         fn to_string(t: impl #ToStyledString) -> String { t.to_styled_string() }
                         let expr = to_string(#expr);
 
-                        #StyledString::new(expr, #Style::default()).into()
+                        #StyledString::str(expr, #Style::default()).into()
                     }
                 });
             }
             FragmentItem::Newline(_) => tokens.extend(quote_using! {
                 [StyledString, Style] => {
-                    #StyledString::new("\n", #Style::default()).into()
+                    #StyledString::str("\n", #Style::default()).into()
                 }
             }),
         }

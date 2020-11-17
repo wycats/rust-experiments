@@ -32,16 +32,16 @@ fn test_hello_world() -> TestResult {
                 .append_group(
                     Group(Doc("greeting").append(" = ").append(r#""hello""#))
                         .append(",")
-                        .append(GAP)
+                        .append(GAP())
                         .append_group(Doc("greeted").append(" = ").append(r#"'"World"'"#))
                         .append(",")
-                        .append(GAP)
+                        .append(GAP())
                         .append_group(Doc("silent").append(" = ").append("false"))
                         .append(",")
-                        .append(GAP)
+                        .append(GAP())
                         .append_group(Doc("onMouseOver"))
-                        .append(Alt::inline(EMPTY).block(","))
-                        .wrapping_nest(GAP, GAP),
+                        .append(Alt::inline(EMPTY()).block(","))
+                        .wrapping_nest(GAP(), GAP()),
                 )
                 .append("}")
                 .append(")")
@@ -49,7 +49,7 @@ fn test_hello_world() -> TestResult {
         )
         .append(" ")
         .append("{}")
-        .append(HARDLINE);
+        .append(HARDLINE());
 
     assert_eq!(render(&doc, &EmitPlain, 80)?, expected_block);
     assert_eq!(render(&doc, &EmitPlain, 96)?, expected_inline);
