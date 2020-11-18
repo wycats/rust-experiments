@@ -11,30 +11,30 @@ use super::{nonempty::NonemptyList, Primitive, Render, Structure};
 
 /// You can implement [DynRender] to create custom high-level structures outside of the [spectrum]
 /// crate.
-pub trait DynRender<Ctx>: std::fmt::Debug
+pub trait DynRender<'a, Ctx>: std::fmt::Debug
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn into_primitive(&self, ctx: &Ctx, recursive: bool) -> Primitive<Ctx>;
+    fn into_primitive(&self, ctx: &Ctx, recursive: bool) -> Primitive<'a, Ctx>;
 
-    fn clone_dyn_render(&self) -> Box<dyn DynRender<Ctx>>;
+    fn clone_dyn_render(&self) -> Box<dyn DynRender<'a, Ctx>>;
 
-    fn render(&self, ctx: &mut Ctx) -> StyledDoc<Ctx> {
+    fn render(&self, ctx: &'a mut Ctx) -> StyledDoc<'a, Ctx> {
         self.render_with_state(&RenderState::default(), ctx)
     }
 
-    fn render_with_config(&self, config: RenderConfig, ctx: &mut Ctx) -> StyledDoc<Ctx> {
+    fn render_with_config(&self, config: RenderConfig, ctx: &'a mut Ctx) -> StyledDoc<'a, Ctx> {
         self.render_with_state(&RenderState::top(config), ctx)
     }
 
-    fn render_with_state(&self, state: &RenderState, ctx: &mut Ctx) -> StyledDoc<Ctx> {
+    fn render_with_state(&self, state: &RenderState, ctx: &'a mut Ctx) -> StyledDoc<'a, Ctx> {
         self.into_primitive(ctx, true).render_with_state(state, ctx)
     }
 }
 
-impl<Ctx> Clone for Box<dyn DynRender<Ctx>>
+impl<'a, Ctx> Clone for Box<dyn DynRender<'a, Ctx>>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     fn clone(&self) -> Self {
         self.clone_dyn_render()
@@ -45,13 +45,13 @@ where
 /// pretty-printable data structures, without confusing them with the even more fundamental building
 /// blocks of Wadler-style pretty-printers.
 #[derive(Debug)]
-pub enum HighLevel<Ctx>
+pub enum HighLevel<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    DelimitedList(Box<JoinList<Ctx>>),
-    Nested(Box<NestedStructure<Ctx>>),
-    HighLevel(Box<dyn DynRender<Ctx>>),
+    DelimitedList(Box<JoinList<'a, Ctx>>),
+    Nested(Box<NestedStructure<'a, Ctx>>),
+    HighLevel(Box<dyn DynRender<'a, Ctx>>),
     /// A space if laid out inline, or a newline if laid out as a block
     Gap,
     /// Like gap, but may render as a space even if other siblings are laid out as a block
@@ -62,9 +62,9 @@ where
     BoundaryHint,
 }
 
-impl<Ctx> Clone for HighLevel<Ctx>
+impl<'a, Ctx> Clone for HighLevel<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     fn clone(&self) -> Self {
         match self {
@@ -79,31 +79,31 @@ where
     }
 }
 
-impl<Ctx> HighLevel<Ctx>
+impl<'a, Ctx> HighLevel<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     pub fn delimited(
-        items: NonemptyList<Structure<Ctx>>,
-        delimiter: Structure<Ctx>,
+        items: NonemptyList<Structure<'a, Ctx>>,
+        delimiter: Structure<'a, Ctx>,
         trailing: bool,
-    ) -> HighLevel<Ctx> {
+    ) -> HighLevel<'a, Ctx> {
         HighLevel::DelimitedList(Box::new(JoinList::new(delimiter, items, trailing)))
     }
 }
 
-impl<Ctx> Render<Ctx> for HighLevel<Ctx>
+impl<'a, Ctx> Render<'a, Ctx> for HighLevel<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<'a, Ctx> {
         match self {
             HighLevel::DelimitedList(d) => d.into_primitive(ctx, recursive),
             HighLevel::Nested(nested) => nested.into_primitive(ctx, recursive),
             HighLevel::HighLevel(r) => r.into_primitive(ctx, recursive),
             HighLevel::Gap => Primitive::Alt {
                 inline: Box::new(Structure::Primitive(Primitive::Fragment(
-                    ctx.styled(" ".into(), Style::default()).into(),
+                    Ctx::styled(" ", Style::default()).into(),
                 ))),
                 block: Box::new(Structure::Primitive(Primitive::Hardline)),
             },

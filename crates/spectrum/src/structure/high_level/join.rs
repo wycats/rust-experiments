@@ -4,19 +4,19 @@ use super::{Primitive, Render, Structure};
 
 use crate::{string::copy_string::StringContext, structure::HighLevel, NonemptyList};
 
-pub trait JoinExt<Ctx>
+pub trait JoinExt<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn join(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx>;
-    fn join_trailing(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx>;
+    fn join(self, delimiter: impl Into<Structure<'a, Ctx>>) -> Structure<'a, Ctx>;
+    fn join_trailing(self, delimiter: impl Into<Structure<'a, Ctx>>) -> Structure<'a, Ctx>;
 }
 
-impl<Ctx> JoinExt<Ctx> for Vec<Structure<Ctx>>
+impl<'a, Ctx> JoinExt<'a, Ctx> for Vec<Structure<'a, Ctx>>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn join(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx> {
+    fn join(self, delimiter: impl Into<Structure<'a, Ctx>>) -> Structure<'a, Ctx> {
         Structure::HighLevel(HighLevel::DelimitedList(Box::new(JoinList {
             delimiter: delimiter.into(),
             items: self.into(),
@@ -24,7 +24,7 @@ where
         })))
     }
 
-    fn join_trailing(self, delimiter: impl Into<Structure<Ctx>>) -> Structure<Ctx> {
+    fn join_trailing(self, delimiter: impl Into<Structure<'a, Ctx>>) -> Structure<'a, Ctx> {
         Structure::HighLevel(HighLevel::DelimitedList(Box::new(JoinList {
             delimiter: delimiter.into(),
             items: self.into(),
@@ -34,18 +34,18 @@ where
 }
 
 #[derive(Debug, new)]
-pub struct JoinList<Ctx>
+pub struct JoinList<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    delimiter: Structure<Ctx>,
-    items: NonemptyList<Structure<Ctx>>,
+    delimiter: Structure<'a, Ctx>,
+    items: NonemptyList<Structure<'a, Ctx>>,
     trailing: bool,
 }
 
-impl<Ctx> Clone for JoinList<Ctx>
+impl<'a, Ctx> Clone for JoinList<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     fn clone(&self) -> Self {
         JoinList {
@@ -56,11 +56,11 @@ where
     }
 }
 
-impl<Ctx> Render<Ctx> for JoinList<Ctx>
+impl<'a, Ctx> Render<'a, Ctx> for JoinList<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<'a, Ctx> {
         let mut list = Primitive::Empty;
 
         let Self {
@@ -103,7 +103,7 @@ mod tests {
     use super::*;
 
     fn frag(s: &'static str, style: impl Into<Style>) -> Structure<SimpleContext> {
-        Structure::fragment(SimpleContext.styled(s, style))
+        Structure::fragment(SimpleContext::styled(s, style))
     }
 
     #[test]

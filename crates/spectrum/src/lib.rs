@@ -9,4 +9,5 @@ pub use emit::into::ToStyledString;
 pub use emit::style::*;
 pub use emit::test::EmitForTest;
 pub use string::copy_string::{SimpleContext, StringContext};
+pub use string::intern::StringArena;
 pub use structure::*;

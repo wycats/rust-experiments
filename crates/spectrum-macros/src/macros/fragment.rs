@@ -22,8 +22,8 @@ impl ToTokens for Bracketed {
         tokens.extend(quote! {{
             extern crate spectrum;
 
-            use spectrum::{Color, StyledString, SimpleContext, StringContext, Style};
-            let string = SimpleContext.styled((#value), Color::#style);
+            use spectrum::{Color, StyledString, StringContext, Style};
+            let string = StringContext::styled((#value), Color::#style);
             string.into()
         }})
     }
@@ -115,11 +115,8 @@ impl ToTokens for FragmentItem {
             FragmentItem::Bracketed(bracketed) => tokens.append_all(Some(bracketed)),
             FragmentItem::String(expr) => {
                 let quoted = quote_using! {
-                    [spectrum::StringContext, spectrum::ToStyledString] => {
-                        use #ToStyledString;
-                        use #StringContext;
-
-                        (#expr).into()
+                    [spectrum::StringContext] => {
+                        #StringContext::plain(#expr).into()
                     }
                 };
 
@@ -127,21 +124,14 @@ impl ToTokens for FragmentItem {
             }
             FragmentItem::Expr(expr) => {
                 tokens.extend(quote_using! {
-                    [spectrum::StringContext, spectrum::ToStyledString] => {
-                        use #StringContext;
-
-                        fn to_string(t: impl #ToStyledString) -> String { t.to_styled_string() }
-                        let expr = to_string(#expr);
-
-                        (#expr).into()
+                    [spectrum::StringContext] => {
+                        #StringContext::plain(#expr).into()
                     }
                 });
             }
             FragmentItem::Newline(_) => tokens.extend(quote_using! {
-                [spectrum::SimpleContext, spectrum::StringContext] => {
-                    use #StringContext;
-
-                    #SimpleContext.plain("\n").into()
+                [spectrum::StringContext] => {
+                    #StringContext::plain("\n").into()
                 }
             }),
         }

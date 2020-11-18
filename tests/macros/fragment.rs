@@ -2,26 +2,38 @@
 
 use std::path::Path;
 
-use spectrum::{EmitForTest, EmitPlain, EmitResult, SimpleContext, StyledFragment};
+use spectrum::{EmitForTest, EmitPlain, EmitResult, StringArena, StringContext, StyledFragment};
 use spectrum_macros::frag;
 
-fn plain(frag: &StyledFragment<SimpleContext>) -> EmitResult<String> {
-    frag.emit_into_string(EmitPlain)
+fn plain<'borrow, 'ctx, C>(
+    frag: &'borrow StyledFragment<'ctx, C>,
+    ctx: &'borrow C,
+) -> EmitResult<String>
+where
+    C: StringContext<'ctx> + 'ctx,
+{
+    frag.emit_into_string_with(&EmitPlain, ctx)
 }
 
-fn color(frag: &StyledFragment<SimpleContext>) -> EmitResult<String> {
-    frag.emit_into_string(EmitForTest)
+fn color<'borrow, 'ctx, C>(
+    frag: &'borrow StyledFragment<'ctx, C>,
+    ctx: &'borrow C,
+) -> EmitResult<String>
+where
+    C: StringContext<'ctx> + 'ctx,
+{
+    frag.emit_into_string_with(&EmitForTest, ctx)
 }
 
 macro_rules! test_case {
-    (( $($frag:tt)* ) => plain: $plain:tt => colored: $colored:tt) => {
-        assert_eq!(&plain(&frag!($($frag)*))?, $plain);
-        assert_eq!(&color(&frag!($($frag)*))?, $colored);
+    ($ctx:expr, ( $($frag:tt)* ) => plain: $plain:tt => colored: $colored:tt) => {
+        assert_eq!(&plain(&frag!($($frag)*), &$ctx)?, $plain);
+        assert_eq!(&color(&frag!($($frag)*), &$ctx)?, $colored);
     };
 
-    ($frag:tt => plain: $plain:tt => colored: $colored:tt) => {
-        assert_eq!(&plain(&frag!($frag))?, $plain);
-        assert_eq!(&color(&frag!($frag))?, $colored);
+    ($ctx:expr, $frag:tt => plain: $plain:tt => colored: $colored:tt) => {
+        assert_eq!(&plain(&frag!($frag), &$ctx)?, $plain);
+        assert_eq!(&color(&frag!($frag), &$ctx)?, $colored);
     };
 }
 
@@ -42,29 +54,31 @@ fn test_line() -> EmitResult {
         value: "Niko".to_string(),
     };
 
-    test_case!( [Red: "hello"]
+    let mut arena = StringArena::default();
+
+    test_case!(arena, [Red: "hello"]
         => plain: "hello"
         => colored: "[Red:hello]" );
 
-    test_case!( "hello"
+    test_case!(arena, "hello"
         => plain: "hello"
         => colored: "[normal:hello]" );
 
-    test_case!(([Red: "hello"] [Green: "world"])
+    test_case!(arena, ([Red: "hello"] [Green: "world"])
         => plain: "helloworld"
         => colored: "[Red:hello][Green:world]" );
 
-    test_case!(([Red: "hello"] value.0 [Green: "world"])
+    test_case!(arena, ([Red: "hello"] value.0 [Green: "world"])
         => plain: "helloouter-valueworld"
         => colored: "[Red:hello][normal:outer-value][Green:world]" );
 
-    // test_case!(([Red: "hello"] stringy.value() [Green: "world"])
-    //     => plain: "helloNikoworld"
-    //     => colored: "[Red:hello][normal:Niko][Green:world]" );
+    test_case!(arena, ([Red: "hello"] stringy.value() [Green: "world"])
+        => plain: "helloNikoworld"
+        => colored: "[Red:hello][normal:Niko][Green:world]" );
 
-    // test_case!(([Red: "hello"] (1 + 1) [Green: "world"])
-    //     => plain: "hello2world"
-    //     => colored: "[Red:hello][normal:2][Green:world]" );
+    test_case!(arena, ([Red: "hello"] arena.intern(1 + 1) [Green: "world"])
+        => plain: "hello2world"
+        => colored: "[Red:hello][normal:2][Green:world]" );
 
     Ok(())
 }
@@ -76,29 +90,31 @@ fn test_block() -> EmitResult {
         value: "Niko".to_string(),
     };
 
-    test_case!( ( [Red: "hello"] ; [Green: "world"] )
+    let mut arena = StringArena::default();
+
+    test_case!(arena, ( [Red: "hello"] ; [Green: "world"] )
         => plain: "hello\nworld"
         => colored: "[Red:hello]\n[Green:world]" );
 
-    test_case!( ( "hello" ; "world" )
+    test_case!(arena, ( "hello" ; "world" )
         => plain: "hello\nworld"
         => colored: "[normal:hello]\n[normal:world]" );
 
-    test_case!(([Red: "hello"] [Green: "world"] ; [Red: "goodbye"] "world")
+    test_case!(arena, ([Red: "hello"] [Green: "world"] ; [Red: "goodbye"] "world")
         => plain: "helloworld\ngoodbyeworld"
         => colored: "[Red:hello][Green:world]\n[Red:goodbye][normal:world]" );
 
-    // test_case!(([Red: "hello"] (&value.0) [Green: "world"] ; [Red: "goodbye"] (&value.1) [Green: "world"])
-    //     => plain: "hellovalue-1world\ngoodbyevalue-2world"
-    //     => colored: "[Red:hello][normal:value-1][Green:world]\n[Red:goodbye][normal:value-2][Green:world]" );
+    test_case!(arena, ([Red: "hello"] (value.0) [Green: "world"] ; [Red: "goodbye"] (value.1) [Green: "world"])
+        => plain: "hellovalue-1world\ngoodbyevalue-2world"
+        => colored: "[Red:hello][normal:value-1][Green:world]\n[Red:goodbye][normal:value-2][Green:world]" );
 
-    // test_case!(([Red: "hello"] stringy.value() [Green: "world"] ; [Red: stringy.value()])
-    //     => plain: "helloNikoworld\nNiko"
-    //     => colored: "[Red:hello][normal:Niko][Green:world]\n[Red:Niko]" );
+    test_case!(arena, ([Red: "hello"] stringy.value() [Green: "world"] ; [Red: stringy.value()])
+        => plain: "helloNikoworld\nNiko"
+        => colored: "[Red:hello][normal:Niko][Green:world]\n[Red:Niko]" );
 
-    // test_case!(([Red: "hello"] ("1 + 1") [Green: "world"] ; [Red: "1 + 1"])
-    //     => plain: "hello2world\n2"
-    //     => colored: "[Red:hello][normal:2][Green:world]\n[Red:2]" );
+    test_case!(arena, ([Red: "hello"] arena.intern(1 + 1) [Green: "world"] ; [Red: arena.intern(1 + 1)])
+        => plain: "hello2world\n2"
+        => colored: "[Red:hello][normal:2][Green:world]\n[Red:2]" );
 
     Ok(())
 }

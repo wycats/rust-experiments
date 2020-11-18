@@ -1,4 +1,4 @@
-frag!([Red: "hello"] stringy [Green: "world"]);
+[Red: "hello"] stringy [Green: "world"]
 ---
 error[E0277]: `Stringy` doesn't implement `std::fmt::Display`
   --> $DIR/didnt-implement-trait.rs:14:26

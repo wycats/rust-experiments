@@ -1,39 +1,53 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Display, marker::PhantomData, pin::Pin};
 
 use bimap::BiMap;
 
 use super::copy_string::{Repr, StringContext};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum StringId {
+pub enum StringId<'a> {
     Id(usize),
-    String(&'static str),
+    String(&'a str),
 }
 
-impl From<&'static str> for StringId {
-    fn from(s: &'static str) -> Self {
+impl<'a> From<StringId<'a>> for Repr<'a, StringArena<'a>> {
+    fn from(id: StringId<'a>) -> Self {
+        Repr::new(id)
+    }
+}
+
+impl<'a> From<Repr<'a, StringArena<'a>>> for StringId<'a> {
+    fn from(id: Repr<'a, StringArena<'a>>) -> Self {
+        id.value()
+    }
+}
+
+impl<'a> From<&'a str> for StringId<'a> {
+    fn from(s: &'a str) -> Self {
         StringId::String(s)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct StringArena {
+pub struct StringArena<'a> {
     id: usize,
-    map: BiMap<String, usize>,
+    map: Pin<Box<BiMap<String, usize>>>,
+    lt: PhantomData<&'a ()>,
 }
 
-impl Default for StringArena {
+impl<'a> Default for StringArena<'a> {
     fn default() -> Self {
         StringArena {
             id: 0,
-            map: BiMap::new(),
+            map: Pin::new(Box::new(BiMap::new())),
+            lt: PhantomData,
         }
     }
 }
 
-impl StringArena {
-    pub fn intern(&mut self, s: impl Into<String>) -> Repr<StringArena> {
-        let s = s.into();
+impl<'a> StringArena<'a> {
+    pub fn intern(&mut self, s: impl Display + 'a) -> Repr<'a, StringArena<'a>> {
+        let s = format!("{}", s);
 
         if let Some(id) = self.map.get_by_left(&s) {
             return Repr::new(StringId::Id(*id));
@@ -44,7 +58,10 @@ impl StringArena {
         Repr::new(StringId::Id(id))
     }
 
-    fn get(&self, s: StringId) -> Cow<'_, str> {
+    fn get<'b>(&'b self, s: StringId<'a>) -> Cow<'b, str>
+    where
+        'a: 'b,
+    {
         match s {
             StringId::Id(id) => {
                 let value = self.map.get_by_right(&id).expect(
@@ -64,34 +81,33 @@ impl StringArena {
     }
 }
 
-pub enum StringArenaInput {
+pub enum StringArenaInput<'a> {
     #[allow(unused)]
     String(String),
-    Str(&'static str),
+    Str(&'a str),
     #[allow(unused)]
-    Id(StringId),
+    Id(StringId<'a>),
 }
 
-impl From<&'static str> for StringArenaInput {
-    fn from(input: &'static str) -> Self {
+impl<'a> From<&'a str> for StringArenaInput<'a> {
+    fn from(input: &'a str) -> Self {
         StringArenaInput::Str(input)
     }
 }
 
-impl StringContext for StringArena {
-    type CustomRepr = StringId;
-    type InputCustomRepr = StringArenaInput;
+impl<'a> StringContext<'a> for StringArena<'a> {
+    type CustomRepr = StringId<'a>;
+    type ValidInput = String;
 
-    fn as_repr(&mut self, input: StringArenaInput) -> Repr<Self> {
-        match input {
-            StringArenaInput::String(s) => self.intern(s),
-            StringArenaInput::Str(s) => self.intern(s),
-            StringArenaInput::Id(id) => Repr::new(id),
-        }
+    fn repr_as_string<'b>(&'b self, id: Repr<'a, Self>) -> Cow<'b, str>
+    where
+        'a: 'b,
+    {
+        self.get(id.value())
     }
 
-    fn repr_as_string(&self, id: StringId) -> Cow<'_, str> {
-        self.get(id)
+    fn take(&mut self, value: impl Into<Self::ValidInput> + 'a) -> Repr<'a, Self> {
+        self.intern(value.into())
     }
 }
 

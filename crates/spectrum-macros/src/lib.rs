@@ -17,15 +17,15 @@ pub fn frag(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {{
         extern crate spectrum;
-        use spectrum::{Color, Style, StyledLine, StyledString, StyledFragment};
+        use spectrum::{StyledLine, StyledFragment};
 
-        let mut v: Vec<StyledFragment> = Vec::new();
+        let mut v: Vec<StyledFragment<_>> = Vec::new();
 
         #(
             v.push(#exprs);
         )*
 
-        let frag: StyledFragment = StyledLine::new(v).into();
+        let frag: StyledFragment<_> = StyledLine::new(v).into();
         frag
     }};
 

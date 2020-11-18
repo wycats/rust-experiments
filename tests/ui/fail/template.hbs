@@ -1,4 +1,6 @@
 use spectrum_macros::frag;
+use spectrum::{SimpleContext, StyledFragment};
+
 struct Stringy {
     value: String,
 }
@@ -11,5 +13,5 @@ fn main() {
     let stringy = Stringy {
         value: "Niko".to_string(),
     };
-    {{{code}}}
+    let value: StyledFragment<SimpleContext> = frag!({{{code}}});
 }

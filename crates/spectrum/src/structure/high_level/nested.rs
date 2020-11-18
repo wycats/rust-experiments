@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use derive_new::new;
 
 use crate::{
@@ -5,33 +7,35 @@ use crate::{
 };
 
 #[derive(Debug, new)]
-pub struct NestedStructure<Ctx>
+pub struct NestedStructure<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    prefix: Structure<Ctx>,
-    postfix: Structure<Ctx>,
-    body: Structure<Ctx>,
+    prefix: Structure<'a, Ctx>,
+    postfix: Structure<'a, Ctx>,
+    body: Structure<'a, Ctx>,
+    marker: PhantomData<&'a ()>,
 }
 
-impl<Ctx> Clone for NestedStructure<Ctx>
+impl<'a, Ctx> Clone for NestedStructure<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     fn clone(&self) -> Self {
         NestedStructure {
             prefix: self.prefix.clone(),
             postfix: self.postfix.clone(),
             body: self.body.clone(),
+            marker: PhantomData,
         }
     }
 }
 
-impl<Ctx> Render<Ctx> for NestedStructure<Ctx>
+impl<'a, Ctx> Render<'a, Ctx> for NestedStructure<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<'a, Ctx> {
         let prefix = self.prefix.into_primitive(ctx, recursive);
         let postfix = self.postfix.into_primitive(ctx, recursive);
         let body = self.body.into_primitive(ctx, recursive);
@@ -44,18 +48,19 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn Nested<Ctx>(
-    prefix: impl Into<Structure<Ctx>>,
-    body: impl Into<Structure<Ctx>>,
-    postfix: impl Into<Structure<Ctx>>,
-) -> Structure<Ctx>
+pub fn Nested<'a, Ctx>(
+    prefix: impl Into<Structure<'a, Ctx>>,
+    body: impl Into<Structure<'a, Ctx>>,
+    postfix: impl Into<Structure<'a, Ctx>>,
+) -> Structure<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     Structure::HighLevel(HighLevel::Nested(Box::new(NestedStructure {
         prefix: prefix.into(),
         postfix: postfix.into(),
         body: body.into(),
+        marker: PhantomData,
     })))
 }
 
@@ -71,7 +76,7 @@ mod tests {
     use super::*;
 
     fn frag(s: &'static str, style: impl Into<Style>) -> Structure<SimpleContext> {
-        Structure::fragment(SimpleContext.styled(s, style))
+        Structure::fragment(SimpleContext::styled(s, style))
     }
 
     #[test]
@@ -81,9 +86,9 @@ mod tests {
         let bold = frag("it-is-bold", Attribute::Bold);
 
         let structure = Nested(
-            SimpleContext.plain("("),
+            SimpleContext::plain("("),
             vec![red, blue, bold].join(GAP()),
-            SimpleContext.plain(")"),
+            SimpleContext::plain(")"),
         );
 
         assert_eq!(
@@ -111,9 +116,9 @@ mod tests {
         let bold = frag("it-is-bold", Attribute::Bold);
 
         let structure = Nested(
-            SimpleContext.plain("("),
+            SimpleContext::plain("("),
             vec![red, blue, bold].join(GAP_HINT()),
-            SimpleContext.plain(")"),
+            SimpleContext::plain(")"),
         );
 
         assert_eq!(
@@ -140,9 +145,9 @@ mod tests {
         let blue = frag("it-is-blue", Color::Blue);
         let bold = frag("it-is-bold", Attribute::Bold);
 
-        let doc: Structure<SimpleContext> = Doc(SimpleContext.plain("("))
+        let doc: Structure<SimpleContext> = Doc(SimpleContext::plain("("))
             .append_group(vec![red, blue, bold].join(GAP_HINT()).nest())
-            .append(SimpleContext.plain(")"));
+            .append(SimpleContext::plain(")"));
 
         assert_eq!(
             render(&doc, &EmitForTest, 100)?,
@@ -168,7 +173,7 @@ mod tests {
         let blue = frag("it-is-blue", Color::Blue);
         let bold = frag("it-is-bold", Attribute::Bold);
 
-        let doc = Doc(SimpleContext.plain("("))
+        let doc = Doc(SimpleContext::plain("("))
             .append_group(
                 vec![red, blue, bold]
                     .join(GAP_HINT())
@@ -176,7 +181,7 @@ mod tests {
                     // were inserted, make a newline at the end
                     .wrapping_nest(BOUNDARY_HINT(), BOUNDARY()),
             )
-            .append(SimpleContext.plain(")"));
+            .append(SimpleContext::plain(")"));
 
         assert_eq!(
             render(&doc, &EmitForTest, 100)?,

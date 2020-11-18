@@ -10,16 +10,16 @@ use crate::{
 use super::{render::Render, Structure, StyledDoc};
 
 #[derive(Clone)]
-pub struct ColumnFn<Ctx>
+pub struct ColumnFn<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    callback: Rc<dyn Fn(usize) -> Structure<Ctx> + Send + Sync + 'static>,
+    callback: Rc<dyn Fn(usize) -> Structure<'a, Ctx> + Send + Sync + 'static>,
 }
 
-impl<Ctx> Debug for ColumnFn<Ctx>
+impl<'a, Ctx> Debug for ColumnFn<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ColumnFn")
@@ -27,42 +27,42 @@ where
 }
 
 #[derive(Debug)]
-pub enum Primitive<Ctx>
+pub enum Primitive<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     Empty,
     /// A `StyledFragment` is a piece of text that must not contain any line breaks of any kind.
-    Fragment(StyledFragment<Ctx>),
+    Fragment(StyledFragment<'a, Ctx>),
     /// A hard newline
     Hardline,
     /// Attempt to lay out each element of the group by choosing the inline branch of any `Alt`s
     /// inside of the group. A bare `Hardline` inside the group will force all elements of the group
     /// to be laid out using the `block` branch of any `Alt`s.
-    Group(Box<Structure<Ctx>>),
+    Group(Box<Structure<'a, Ctx>>),
     /// A collection of structures which are logically spread out in its location in the data
     /// structure. If a list contains an `Alt`, it is considered to be directly nested inside of its
     /// immediate parent group.
-    List(Vec<Structure<Ctx>>),
+    List(Vec<Structure<'a, Ctx>>),
     /// A structure that is laid out differently in inline context vs. block context.
     Alt {
-        inline: Box<Structure<Ctx>>,
-        block: Box<Structure<Ctx>>,
+        inline: Box<Structure<'a, Ctx>>,
+        block: Box<Structure<'a, Ctx>>,
     },
     /// A structure that is logically indented by a number of indents. Indents are applied after
     /// each newline, and can either be a precise number of indents, or a logical number of indents
     /// (controlled by configuration).
     Nested {
         indent: Nesting,
-        structure: Box<Structure<Ctx>>,
-        start_gap: Box<Structure<Ctx>>,
-        end_gap: Box<Structure<Ctx>>,
+        structure: Box<Structure<'a, Ctx>>,
+        start_gap: Box<Structure<'a, Ctx>>,
+        end_gap: Box<Structure<'a, Ctx>>,
     },
 }
 
-impl<Ctx> Clone for Primitive<Ctx>
+impl<'a, Ctx> Clone for Primitive<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
     fn clone(&self) -> Self {
         match self {
@@ -90,17 +90,17 @@ where
     }
 }
 
-impl<Ctx: StringContext> From<Primitive<Ctx>> for Structure<Ctx> {
-    fn from(primitive: Primitive<Ctx>) -> Self {
+impl<'a, Ctx: StringContext<'a>> From<Primitive<'a, Ctx>> for Structure<'a, Ctx> {
+    fn from(primitive: Primitive<'a, Ctx>) -> Self {
         Structure::Primitive(primitive)
     }
 }
 
-impl<Ctx> Primitive<Ctx>
+impl<'a, Ctx> Primitive<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    pub fn append(self, structure: impl Into<Structure<Ctx>>) -> Primitive<Ctx> {
+    pub fn append(self, structure: impl Into<Structure<'a, Ctx>>) -> Primitive<'a, Ctx> {
         match self {
             Primitive::List(mut v) => {
                 v.push(structure.into());
@@ -111,19 +111,19 @@ where
         }
     }
 
-    pub fn group(self) -> Primitive<Ctx> {
+    pub fn group(self) -> Primitive<'a, Ctx> {
         Primitive::Group(Box::new(self.into()))
     }
 
-    pub fn nest(self) -> Primitive<Ctx> {
+    pub fn nest(self) -> Primitive<'a, Ctx> {
         self.wrapping_nest(BOUNDARY(), BOUNDARY())
     }
 
     pub fn wrapping_nest(
         self,
-        pre: impl Into<Structure<Ctx>>,
-        post: impl Into<Structure<Ctx>>,
-    ) -> Primitive<Ctx> {
+        pre: impl Into<Structure<'a, Ctx>>,
+        post: impl Into<Structure<'a, Ctx>>,
+    ) -> Primitive<'a, Ctx> {
         Primitive::Nested {
             indent: Nesting::Configured(1),
             structure: Box::new(Structure::Primitive(self)),
@@ -133,11 +133,11 @@ where
     }
 }
 
-impl<Ctx> Render<Ctx> for Primitive<Ctx>
+impl<'a, Ctx> Render<'a, Ctx> for Primitive<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn render_with_state(self, state: &RenderState, ctx: &mut Ctx) -> StyledDoc<Ctx> {
+    fn render_with_state<'b>(self, state: &RenderState, ctx: &'b mut Ctx) -> StyledDoc<'a, Ctx> {
         match self {
             // A `Primitive::Empty` is equivalent to `Doc::Nil`
             Primitive::Empty => BoxDoc::nil(),
@@ -182,7 +182,7 @@ where
         }
     }
 
-    fn into_primitive(self, _ctx: &mut Ctx, _recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, _ctx: &mut Ctx, _recursive: bool) -> Primitive<'a, Ctx> {
         self
     }
 }

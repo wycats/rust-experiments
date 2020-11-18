@@ -1,62 +1,93 @@
 use std::{
     error::Error,
     io::{self, stdout},
+    marker::PhantomData,
 };
 
 use pretty::{Render, RenderAnnotated};
 
-use crate::{string::copy_string::StringContext, EmitBackend, StyledFragment};
+use crate::{string::copy_string::StringContext, EmitBackendTrait, StyledFragment};
 
-pub struct StyledRenderer<'a, Ctx>
+enum CowMut<'a, T>
 where
-    Ctx: StringContext,
+    T: ?Sized,
 {
-    write: Box<dyn io::Write + 'a>,
-    backend: EmitBackend<'a>,
-    ctx: &'a Ctx,
+    Owned(Box<T>),
+    Borrowed(&'a mut T),
+}
+
+impl<'a, T> CowMut<'a, T>
+where
+    T: ?Sized,
+{
+    fn to_mut(&mut self) -> &mut T {
+        match self {
+            CowMut::Owned(owned) => owned,
+            CowMut::Borrowed(borrowed) => borrowed,
+        }
+    }
+}
+
+pub struct StyledRenderer<'borrow, 'backend, 'write, 'ctx, Ctx>
+where
+    Ctx: StringContext<'ctx> + 'ctx,
+    'backend: 'borrow,
+    'write: 'borrow,
+    'ctx: 'borrow,
+{
+    write: CowMut<'borrow, dyn io::Write + 'write>,
+    backend: &'borrow (dyn EmitBackendTrait + 'backend),
+    ctx: &'borrow mut Ctx,
+    ctx_lt: PhantomData<&'ctx ()>,
     /// remember whether we saw an annotation, which means we don't need to emit the string when
     /// write_str is called.
     ann: bool,
 }
 
-impl<'a, Ctx> StyledRenderer<'a, Ctx>
+impl<'borrow, 'backend, 'write, 'ctx, Ctx> StyledRenderer<'borrow, 'backend, 'write, 'ctx, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'ctx> + 'ctx,
+    'backend: 'borrow,
+    'write: 'borrow,
+    'ctx: 'borrow,
 {
     #[allow(unused)]
     pub fn new(
-        write: impl io::Write + 'a,
-        backend: impl Into<EmitBackend<'a>>,
-        context: &'a Ctx,
-    ) -> StyledRenderer<'a, Ctx>
-    where
-        Ctx: StringContext,
-    {
+        write: &'borrow mut (dyn io::Write + 'write),
+        backend: &'borrow (dyn EmitBackendTrait + 'backend),
+        context: &'borrow mut Ctx,
+    ) -> StyledRenderer<'borrow, 'backend, 'write, 'ctx, Ctx> {
         StyledRenderer {
-            write: Box::new(write),
-            backend: backend.into(),
+            write: CowMut::Borrowed(write),
+            backend,
             ann: false,
             ctx: context,
+            ctx_lt: PhantomData,
         }
     }
 
     #[allow(unused)]
     pub fn stdout(
-        backend: impl Into<EmitBackend<'a>>,
-        context: &'a Ctx,
-    ) -> StyledRenderer<'a, Ctx> {
+        backend: &'borrow (dyn EmitBackendTrait + 'backend),
+        context: &'borrow mut Ctx,
+    ) -> StyledRenderer<'borrow, 'backend, 'static, 'ctx, Ctx> {
         StyledRenderer {
-            write: Box::new(stdout()),
-            backend: backend.into(),
+            write: CowMut::Owned(Box::new(stdout())),
+            backend,
             ann: false,
             ctx: context,
+            ctx_lt: PhantomData,
         }
     }
 }
 
-impl<'a, Ctx> Render for StyledRenderer<'a, Ctx>
+impl<'borrow, 'backend, 'write, 'ctx, Ctx> Render
+    for StyledRenderer<'borrow, 'backend, 'write, 'ctx, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'ctx> + 'ctx,
+    'backend: 'borrow,
+    'write: 'borrow,
+    'ctx: 'borrow,
 {
     type Error = Box<dyn Error>;
 
@@ -64,7 +95,7 @@ where
         if self.ann {
             self.ann = false;
         } else {
-            write!(self.write, "{}", s)?;
+            write!(self.write.to_mut(), "{}", s)?;
         }
 
         Ok(s.len())
@@ -78,13 +109,21 @@ where
     }
 }
 
-impl<'a, Ctx> RenderAnnotated<'a, StyledFragment<Ctx>> for StyledRenderer<'_, Ctx>
+impl<'borrow, 'backend, 'write, 'ctx, 'inner, Ctx>
+    RenderAnnotated<'inner, StyledFragment<'ctx, Ctx>>
+    for StyledRenderer<'borrow, 'backend, 'write, 'ctx, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'ctx> + 'ctx,
+    'backend: 'borrow,
+    'write: 'borrow,
+    'ctx: 'borrow,
 {
-    fn push_annotation(&mut self, annotation: &'a StyledFragment<Ctx>) -> Result<(), Self::Error> {
+    fn push_annotation(
+        &mut self,
+        annotation: &'inner StyledFragment<'ctx, Ctx>,
+    ) -> Result<(), Self::Error> {
         self.ann = true;
-        Ok(annotation.emit_into_with(&mut *self.write, &self.backend, &self.ctx)?)
+        Ok(annotation.emit_into_with(self.write.to_mut(), self.backend, &self.ctx)?)
     }
 
     fn pop_annotation(&mut self) -> Result<(), Self::Error> {
@@ -107,12 +146,11 @@ mod tests {
     #[test]
     fn basic_render() -> Result<(), Box<dyn Error>> {
         let structure: Structure<SimpleContext> =
-            Structure::fragment(SimpleContext.styled("hello", Color::Red))
+            Structure::fragment(SimpleContext::styled("hello", Color::Red))
                 .append(Structure::hardline());
 
-        let pretty = structure.render();
-
-        let string = Buf::collect_string(|write| {
+        let string = Buf::collect_string(move |write| {
+            let pretty = structure.render();
             let ctx = &mut SimpleContext;
             let mut renderer = StyledRenderer::new(write, &EmitPlain, ctx);
             pretty
@@ -128,7 +166,7 @@ mod tests {
     #[test]
     fn colored_render() -> Result<(), Box<dyn Error>> {
         let structure: Structure<SimpleContext> =
-            Structure::fragment(SimpleContext.styled("hello", Color::Red))
+            Structure::fragment(SimpleContext::styled("hello", Color::Red))
                 .append(Structure::hardline());
 
         let pretty = structure.render();
@@ -150,11 +188,11 @@ mod tests {
 
     #[test]
     fn prettyrs_example() -> Result<(), Box<dyn Error>> {
-        let red = Structure::fragment(SimpleContext.styled("it-is-red", Color::Red));
+        let red = Structure::fragment(SimpleContext::styled("it-is-red", Color::Red));
 
-        let blue = Structure::fragment(SimpleContext.styled("it-is-blue", Color::Blue));
+        let blue = Structure::fragment(SimpleContext::styled("it-is-blue", Color::Blue));
 
-        let bold = Structure::fragment(SimpleContext.styled("it-is-bold", Attribute::Bold));
+        let bold = Structure::fragment(SimpleContext::styled("it-is-bold", Attribute::Bold));
 
         let structure = red
             .append(GAP())

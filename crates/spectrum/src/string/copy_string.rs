@@ -26,86 +26,98 @@ impl<T> Copy for StringRepr<T> where T: Copy {}
 /// This newtype makes it possible to implement Into<Structure> and Into<Fragment> on the string
 /// context's repr
 #[derive(new)]
-pub struct Repr<Ctx>(Ctx::CustomRepr)
+pub struct Repr<'a, Ctx>(Ctx::CustomRepr)
 where
-    Ctx: StringContext;
+    Ctx: StringContext<'a>;
 
-impl<Ctx> Into<Structure<Ctx>> for Repr<Ctx>
+impl<'a, Ctx> Repr<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn into(self) -> Structure<Ctx> {
+    pub(crate) fn value(self) -> Ctx::CustomRepr {
+        self.0
+    }
+}
+
+impl<'a, Ctx> Into<Structure<'a, Ctx>> for Repr<'a, Ctx>
+where
+    Ctx: StringContext<'a>,
+{
+    fn into(self) -> Structure<'a, Ctx> {
         StyledFragment::String(self.into()).into()
     }
 }
 
-impl<Ctx> Into<StyledFragment<Ctx>> for Repr<Ctx>
+impl<'a, Ctx> Into<StyledFragment<'a, Ctx>> for Repr<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn into(self) -> StyledFragment<Ctx> {
+    fn into(self) -> StyledFragment<'a, Ctx> {
         StyledFragment::String(self.into())
     }
 }
 
-impl<Ctx> Into<StyledString<Ctx>> for Repr<Ctx>
+impl<'a, Ctx> Into<StyledString<'a, Ctx>> for Repr<'a, Ctx>
 where
-    Ctx: StringContext,
+    Ctx: StringContext<'a>,
 {
-    fn into(self) -> StyledString<Ctx> {
+    fn into(self) -> StyledString<'a, Ctx> {
         StyledString::repr(self.0, Style::default())
     }
 }
 
-pub trait StringContext: Debug + Default {
+pub trait StringContext<'a>: Debug + Default {
     /// CustomRepr must implement From<&'static str> so that static strings are generically allowed
     /// as string representations
-    type CustomRepr: From<&'static str> + Copy + Debug;
-    type InputCustomRepr: From<&'static str>;
+    type CustomRepr: From<&'a str> + Copy + 'a + Debug;
+    type ValidInput;
 
-    fn as_repr(&mut self, input: Self::InputCustomRepr) -> Repr<Self>;
-    fn repr_as_string(&self, string: Self::CustomRepr) -> Cow<'_, str>;
+    fn take(&mut self, value: impl Into<Self::ValidInput> + 'a) -> Repr<'a, Self>;
 
-    fn as_string(&mut self, input: Self::InputCustomRepr) -> Cow<'_, str> {
-        let repr = self.as_repr(input);
-        self.repr_as_string(repr.0)
+    fn as_repr(value: impl Into<Self::CustomRepr> + 'a) -> Repr<'a, Self> {
+        Repr::new(value.into())
     }
 
-    fn styled_repr(input: Self::CustomRepr, style: impl Into<Style>) -> StyledString<Self> {
-        StyledString::repr(input, style)
-    }
-
-    fn plain_repr(input: Self::CustomRepr) -> StyledString<Self> {
-        StyledString::repr(input, Style::default())
-    }
+    fn repr_as_string<'b>(&'b self, string: Repr<'a, Self>) -> Cow<'b, str>
+    where
+        'a: 'b,
+        Self::CustomRepr: 'a;
 
     fn styled(
-        &mut self,
-        input: Self::InputCustomRepr,
+        input: impl Into<Self::CustomRepr> + 'a,
         style: impl Into<Style>,
-    ) -> StyledString<Self> {
-        let repr = self.as_repr(input).0;
-        StyledString::repr(repr, style.into())
+    ) -> StyledString<'a, Self> {
+        Self::styled_repr(Repr(input.into()), style)
     }
 
-    fn plain(&mut self, input: Self::InputCustomRepr) -> StyledString<Self> {
-        let repr = self.as_repr(input).0;
-        StyledString::repr(repr, Style::default())
+    fn styled_repr(input: Repr<'a, Self>, style: impl Into<Style>) -> StyledString<'a, Self> {
+        StyledString::repr(input.0, style)
+    }
+
+    fn plain(input: impl Into<Self::CustomRepr> + 'a) -> StyledString<'a, Self> {
+        Self::styled_repr(Repr(input.into()), Style::default())
+    }
+
+    fn plain_repr(input: Repr<'a, Self>) -> StyledString<'a, Self> {
+        StyledString::repr(input.0, Style::default())
     }
 }
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct SimpleContext;
 
-impl StringContext for SimpleContext {
-    type CustomRepr = &'static str;
-    type InputCustomRepr = &'static str;
+impl<'a> StringContext<'a> for SimpleContext {
+    type CustomRepr = &'a str;
+    type ValidInput = &'a str;
 
-    fn as_repr(&mut self, input: &'static str) -> Repr<Self> {
-        Repr(input)
+    fn repr_as_string<'b>(&'b self, string: Repr<'a, Self>) -> Cow<'b, str>
+    where
+        'a: 'b,
+    {
+        Cow::Borrowed(string.0)
     }
 
-    fn repr_as_string(&self, string: &'static str) -> Cow<'_, str> {
-        Cow::Borrowed(string)
+    fn take(&mut self, value: impl Into<&'a str>) -> Repr<'a, Self> {
+        Repr::new(value.into())
     }
 }
