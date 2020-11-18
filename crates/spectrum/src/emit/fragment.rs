@@ -4,7 +4,7 @@ use std::{
     io::Write,
 };
 
-use crate::string::copy_string::{CopyString, StringContext};
+use crate::{string::copy_string::StringContext, Primitive, SimpleContext, Structure};
 
 use super::{
     buf::Buf,
@@ -13,13 +13,49 @@ use super::{
 };
 
 #[derive(Debug)]
-pub enum StyledFragment<Ctx = ()>
+pub enum StyledFragment<Ctx = SimpleContext>
 where
     Ctx: StringContext,
 {
     String(StyledString<Ctx>),
     Line(StyledLine<Ctx>),
     Newline,
+}
+
+impl<Ctx> Into<StyledString<Ctx>> for &'static str
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> StyledString<Ctx> {
+        Ctx::plain_repr(self.into())
+    }
+}
+
+impl<Ctx> Into<StyledFragment<Ctx>> for &'static str
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> StyledFragment<Ctx> {
+        StyledFragment::String(self.into())
+    }
+}
+
+impl<Ctx> Into<Structure<Ctx>> for StyledFragment<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> Structure<Ctx> {
+        Structure::Primitive(self.into())
+    }
+}
+
+impl<Ctx> Into<Primitive<Ctx>> for StyledFragment<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> Primitive<Ctx> {
+        Primitive::Fragment(self)
+    }
 }
 
 impl<Ctx> Clone for StyledFragment<Ctx>
@@ -32,15 +68,6 @@ where
             StyledFragment::Newline => StyledFragment::Newline,
             StyledFragment::Line(line) => StyledFragment::Line(line.clone()),
         }
-    }
-}
-
-impl<Ctx> Into<StyledFragment<Ctx>> for &'static str
-where
-    Ctx: StringContext,
-{
-    fn into(self) -> StyledFragment<Ctx> {
-        StyledFragment::String(self.into())
     }
 }
 
@@ -66,7 +93,7 @@ where
         ctx: &Ctx,
     ) -> EmitResult {
         match self {
-            StyledFragment::String(s) => backend.emit(f, &ctx.as_string(s.string.repr), &s.style),
+            StyledFragment::String(s) => backend.emit(f, &ctx.repr_as_string(s.string), &s.style),
             StyledFragment::Newline => backend.emit(f, "\n", &Style::default()),
             StyledFragment::Line(line) => {
                 for fragment in line.line.iter() {
@@ -108,7 +135,7 @@ where
 
     pub fn emit_into_string(&self, backend: impl EmitBackendTrait) -> EmitResult<String>
     where
-        Ctx: StringContext<CustomRepr = ()>,
+        Ctx: StringContext<CustomRepr = &'static str>,
     {
         self.emit_into_string_with(backend, &Ctx::default())
     }
@@ -120,12 +147,21 @@ pub struct StyledNewline;
 /// A `StyledString` is the simplest implementation of `StyledFragment`, holding a `String` and a
 /// `Style`.
 #[derive(Debug, Copy)]
-pub struct StyledString<Ctx>
+pub struct StyledString<Ctx = SimpleContext>
 where
     Ctx: StringContext,
 {
-    string: CopyString<Ctx>,
+    string: Ctx::CustomRepr,
     style: Style,
+}
+
+impl<Ctx> Into<Structure<Ctx>> for StyledString<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> Structure<Ctx> {
+        Structure::fragment(self)
+    }
 }
 
 impl<Ctx> Clone for StyledString<Ctx>
@@ -153,29 +189,23 @@ impl<Ctx> StyledString<Ctx>
 where
     Ctx: StringContext,
 {
-    pub fn custom(s: Ctx::CustomRepr, style: impl Into<Style>) -> StyledString<Ctx> {
-        StyledString {
-            string: CopyString::custom(s),
-            style: style.into(),
-        }
-    }
+    // pub fn str(s: Ctx::InputCustomRepr, style: impl Into<Style>) -> StyledString<Ctx>
+    // where
+    //     Ctx: StringContext,
+    // {
+    //     StyledString {
+    //         string: Ctx::as_repr(s),
+    //         style: style.into(),
+    //     }
+    // }
 
-    pub fn str(s: &'static str, style: impl Into<Style>) -> StyledString<Ctx> {
+    pub fn repr(s: Ctx::CustomRepr, style: impl Into<Style>) -> StyledString<Ctx>
+    where
+        Ctx: StringContext,
+    {
         StyledString {
-            string: CopyString::str(s),
+            string: s,
             style: style.into(),
-        }
-    }
-}
-
-impl<Ctx> Into<StyledString<Ctx>> for &'static str
-where
-    Ctx: StringContext,
-{
-    fn into(self) -> StyledString<Ctx> {
-        StyledString {
-            string: self.into(),
-            style: Style::default(),
         }
     }
 }
@@ -275,15 +305,16 @@ pub fn write_into(
 
 #[cfg(test)]
 mod tests {
-    use crate::EmitForTest;
+    use crate::{string::copy_string::SimpleContext, EmitForTest};
 
     use super::*;
     use console::Color;
 
     #[test]
     fn emit_test() -> EmitResult {
-        let styled: StyledFragment =
-            StyledString::str("hello emitter world", Style::new().fg(Color::Red)).into();
+        let styled: StyledFragment<SimpleContext> = SimpleContext
+            .styled("hello emitter world", Color::Red)
+            .into();
         let string = styled.emit_into_string(EmitForTest)?;
 
         assert_eq!(&string, "[Red:hello emitter world]");
@@ -293,8 +324,9 @@ mod tests {
 
     #[test]
     fn emit_plain() -> EmitResult {
-        let styled: StyledFragment =
-            StyledString::str("hello emitter world", Style::new().fg(Color::Red)).into();
+        let styled: StyledFragment<SimpleContext> = SimpleContext
+            .styled("hello emitter world", Color::Red)
+            .into();
         let string = styled.emit_into_string(EmitPlain)?;
 
         assert_eq!(&string, "hello emitter world");
@@ -304,8 +336,9 @@ mod tests {
 
     #[test]
     fn emit_colored() -> EmitResult {
-        let styled: StyledFragment =
-            StyledString::str("hello emitter world", Style::new().fg(Color::Red)).into();
+        let styled: StyledFragment<SimpleContext> = SimpleContext
+            .styled("hello emitter world", Color::Red)
+            .into();
         let string = styled.emit_into_string(EmitColored)?;
 
         assert_eq!(&string, "\u{1b}[31mhello emitter world\u{1b}[0m");

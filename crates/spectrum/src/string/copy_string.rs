@@ -1,4 +1,7 @@
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use derive_new::new;
+use std::{borrow::Cow, fmt::Debug};
+
+use crate::{Structure, Style, StyledFragment, StyledString};
 
 #[derive(Debug, Clone)]
 pub enum StringRepr<T = ()>
@@ -20,83 +23,89 @@ where
 
 impl<T> Copy for StringRepr<T> where T: Copy {}
 
+/// This newtype makes it possible to implement Into<Structure> and Into<Fragment> on the string
+/// context's repr
+#[derive(new)]
+pub struct Repr<Ctx>(Ctx::CustomRepr)
+where
+    Ctx: StringContext;
+
+impl<Ctx> Into<Structure<Ctx>> for Repr<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> Structure<Ctx> {
+        StyledFragment::String(self.into()).into()
+    }
+}
+
+impl<Ctx> Into<StyledFragment<Ctx>> for Repr<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> StyledFragment<Ctx> {
+        StyledFragment::String(self.into())
+    }
+}
+
+impl<Ctx> Into<StyledString<Ctx>> for Repr<Ctx>
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> StyledString<Ctx> {
+        StyledString::repr(self.0, Style::default())
+    }
+}
+
 pub trait StringContext: Debug + Default {
-    type CustomRepr: Copy + Debug;
+    /// CustomRepr must implement From<&'static str> so that static strings are generically allowed
+    /// as string representations
+    type CustomRepr: From<&'static str> + Copy + Debug;
+    type InputCustomRepr: From<&'static str>;
 
-    fn as_string(&self, string: StringRepr<Self::CustomRepr>) -> Cow<'_, str> {
-        match string {
-            StringRepr::String(string) => Cow::Borrowed(string),
-            StringRepr::Other(repr) => self.from_custom(repr),
-        }
-    }
-    fn from_custom(&self, string: Self::CustomRepr) -> Cow<'_, str>;
-}
+    fn as_repr(&mut self, input: Self::InputCustomRepr) -> Repr<Self>;
+    fn repr_as_string(&self, string: Self::CustomRepr) -> Cow<'_, str>;
 
-impl StringContext for () {
-    type CustomRepr = ();
-
-    fn as_string(&self, string: StringRepr) -> Cow<'_, str> {
-        match string {
-            StringRepr::String(string) => Cow::Borrowed(string),
-            StringRepr::Other(()) => Cow::Borrowed(""),
-        }
+    fn as_string(&mut self, input: Self::InputCustomRepr) -> Cow<'_, str> {
+        let repr = self.as_repr(input);
+        self.repr_as_string(repr.0)
     }
 
-    fn from_custom(&self, _string: Self::CustomRepr) -> Cow<'_, str> {
-        Cow::Borrowed("")
-    }
-}
-
-#[derive(Debug)]
-pub struct CopyString<Ctx>
-where
-    Ctx: StringContext,
-{
-    pub(crate) repr: StringRepr<Ctx::CustomRepr>,
-    ctx: PhantomData<Ctx>,
-}
-
-impl<Ctx> CopyString<Ctx>
-where
-    Ctx: StringContext,
-{
-    pub fn str(repr: &'static str) -> CopyString<Ctx> {
-        CopyString {
-            repr: StringRepr::String(repr),
-            ctx: PhantomData,
-        }
+    fn styled_repr(input: Self::CustomRepr, style: impl Into<Style>) -> StyledString<Self> {
+        StyledString::repr(input, style)
     }
 
-    pub fn custom(repr: Ctx::CustomRepr) -> CopyString<Ctx> {
-        CopyString {
-            repr: StringRepr::Other(repr),
-            ctx: PhantomData,
-        }
+    fn plain_repr(input: Self::CustomRepr) -> StyledString<Self> {
+        StyledString::repr(input, Style::default())
+    }
+
+    fn styled(
+        &mut self,
+        input: Self::InputCustomRepr,
+        style: impl Into<Style>,
+    ) -> StyledString<Self> {
+        let repr = self.as_repr(input).0;
+        StyledString::repr(repr, style.into())
+    }
+
+    fn plain(&mut self, input: Self::InputCustomRepr) -> StyledString<Self> {
+        let repr = self.as_repr(input).0;
+        StyledString::repr(repr, Style::default())
     }
 }
 
-impl<Ctx> Into<CopyString<Ctx>> for &'static str
-where
-    Ctx: StringContext,
-{
-    fn into(self) -> CopyString<Ctx> {
-        CopyString {
-            repr: StringRepr::String(self),
-            ctx: PhantomData,
-        }
+#[derive(Debug, Default, Copy, Clone)]
+pub struct SimpleContext;
+
+impl StringContext for SimpleContext {
+    type CustomRepr = &'static str;
+    type InputCustomRepr = &'static str;
+
+    fn as_repr(&mut self, input: &'static str) -> Repr<Self> {
+        Repr(input)
+    }
+
+    fn repr_as_string(&self, string: &'static str) -> Cow<'_, str> {
+        Cow::Borrowed(string)
     }
 }
-
-impl<Ctx> Clone for CopyString<Ctx>
-where
-    Ctx: StringContext,
-{
-    fn clone(&self) -> Self {
-        CopyString {
-            repr: self.repr,
-            ctx: PhantomData,
-        }
-    }
-}
-
-impl<Ctx> Copy for CopyString<Ctx> where Ctx: StringContext {}

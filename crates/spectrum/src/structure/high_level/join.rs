@@ -60,7 +60,7 @@ impl<Ctx> Render<Ctx> for JoinList<Ctx>
 where
     Ctx: StringContext,
 {
-    fn into_primitive(self, recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx> {
         let mut list = Primitive::Empty;
 
         let Self {
@@ -74,7 +74,7 @@ where
             let value = item.value();
 
             if recursive {
-                list = list.append(Structure::Primitive(value.into_primitive(true)));
+                list = list.append(Structure::Primitive(value.into_primitive(ctx, true)));
             } else {
                 list = list.append(value);
             }
@@ -91,7 +91,8 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        string::copy_string::StringContext, structure::prelude::*, Style, StyledString, GAP,
+        string::copy_string::SimpleContext, string::copy_string::StringContext,
+        structure::prelude::*, Style, GAP,
     };
     use std::error::Error;
 
@@ -101,11 +102,8 @@ mod tests {
 
     use super::*;
 
-    fn frag<Ctx>(s: &'static str, style: impl Into<Style>) -> Structure<Ctx>
-    where
-        Ctx: StringContext,
-    {
-        Structure::fragment(StyledString::str(s, style.into()))
+    fn frag(s: &'static str, style: impl Into<Style>) -> Structure<SimpleContext> {
+        Structure::fragment(SimpleContext.styled(s, style))
     }
 
     #[test]

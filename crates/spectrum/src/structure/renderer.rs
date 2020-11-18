@@ -13,7 +13,7 @@ where
 {
     write: Box<dyn io::Write + 'a>,
     backend: EmitBackend<'a>,
-    ctx: Ctx,
+    ctx: &'a Ctx,
     /// remember whether we saw an annotation, which means we don't need to emit the string when
     /// write_str is called.
     ann: bool,
@@ -27,7 +27,7 @@ where
     pub fn new(
         write: impl io::Write + 'a,
         backend: impl Into<EmitBackend<'a>>,
-        context: Ctx,
+        context: &'a Ctx,
     ) -> StyledRenderer<'a, Ctx>
     where
         Ctx: StringContext,
@@ -41,7 +41,10 @@ where
     }
 
     #[allow(unused)]
-    pub fn stdout(backend: impl Into<EmitBackend<'a>>, context: Ctx) -> StyledRenderer<'a, Ctx> {
+    pub fn stdout(
+        backend: impl Into<EmitBackend<'a>>,
+        context: &'a Ctx,
+    ) -> StyledRenderer<'a, Ctx> {
         StyledRenderer {
             write: Box::new(stdout()),
             backend: backend.into(),
@@ -96,22 +99,22 @@ mod tests {
     use pretty::{Arena, DocAllocator};
 
     use super::*;
-    use crate::render::Render;
     use crate::{
-        emit::buf::Buf, structure::test::render, structure::Structure, EmitForTest, EmitPlain,
-        Style, StyledString, GAP,
+        emit::buf::Buf, structure::test::render, structure::Structure, EmitForTest, EmitPlain, GAP,
     };
+    use crate::{render::Render, string::copy_string::SimpleContext};
 
     #[test]
     fn basic_render() -> Result<(), Box<dyn Error>> {
-        let structure: Structure<()> =
-            Structure::fragment(StyledString::str("hello", Style::default().fg(Color::Red)))
+        let structure: Structure<SimpleContext> =
+            Structure::fragment(SimpleContext.styled("hello", Color::Red))
                 .append(Structure::hardline());
 
         let pretty = structure.render();
 
         let string = Buf::collect_string(|write| {
-            let mut renderer = StyledRenderer::new(write, &EmitPlain, ());
+            let ctx = &mut SimpleContext;
+            let mut renderer = StyledRenderer::new(write, &EmitPlain, ctx);
             pretty
                 .render_raw(100, &mut renderer)
                 .map_err(|_| std::fmt::Error)
@@ -124,8 +127,8 @@ mod tests {
 
     #[test]
     fn colored_render() -> Result<(), Box<dyn Error>> {
-        let structure: Structure<()> =
-            Structure::fragment(StyledString::str("hello", Style::default().fg(Color::Red)))
+        let structure: Structure<SimpleContext> =
+            Structure::fragment(SimpleContext.styled("hello", Color::Red))
                 .append(Structure::hardline());
 
         let pretty = structure.render();
@@ -133,7 +136,8 @@ mod tests {
         eprintln!("{:#?}", pretty);
 
         let string = Buf::collect_string(|write| {
-            let mut renderer = StyledRenderer::new(write, &EmitForTest, ());
+            let ctx = &mut SimpleContext;
+            let mut renderer = StyledRenderer::new(write, &EmitForTest, ctx);
             pretty
                 .render_raw(100, &mut renderer)
                 .map_err(|_| std::fmt::Error)
@@ -146,20 +150,11 @@ mod tests {
 
     #[test]
     fn prettyrs_example() -> Result<(), Box<dyn Error>> {
-        let red = Structure::fragment(StyledString::str(
-            "it-is-red",
-            Style::default().fg(Color::Red),
-        ));
+        let red = Structure::fragment(SimpleContext.styled("it-is-red", Color::Red));
 
-        let blue = Structure::fragment(StyledString::str(
-            "it-is-blue",
-            Style::default().fg(Color::Blue),
-        ));
+        let blue = Structure::fragment(SimpleContext.styled("it-is-blue", Color::Blue));
 
-        let bold = Structure::fragment(StyledString::str(
-            "it-is-bold",
-            Style::default().attr(Attribute::Bold),
-        ));
+        let bold = Structure::fragment(SimpleContext.styled("it-is-bold", Attribute::Bold));
 
         let structure = red
             .append(GAP())

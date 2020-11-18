@@ -2,14 +2,14 @@
 
 use std::path::Path;
 
-use spectrum::{EmitForTest, EmitPlain, EmitResult, StyledFragment};
+use spectrum::{EmitForTest, EmitPlain, EmitResult, SimpleContext, StyledFragment};
 use spectrum_macros::frag;
 
-fn plain(frag: &StyledFragment) -> EmitResult<String> {
+fn plain(frag: &StyledFragment<SimpleContext>) -> EmitResult<String> {
     frag.emit_into_string(EmitPlain)
 }
 
-fn color(frag: &StyledFragment) -> EmitResult<String> {
+fn color(frag: &StyledFragment<SimpleContext>) -> EmitResult<String> {
     frag.emit_into_string(EmitForTest)
 }
 
@@ -54,9 +54,9 @@ fn test_line() -> EmitResult {
         => plain: "helloworld"
         => colored: "[Red:hello][Green:world]" );
 
-    // test_case!(([Red: "hello"] value.0 [Green: "world"])
-    //     => plain: "helloouter-valueworld"
-    //     => colored: "[Red:hello][normal:outer-value][Green:world]" );
+    test_case!(([Red: "hello"] value.0 [Green: "world"])
+        => plain: "helloouter-valueworld"
+        => colored: "[Red:hello][normal:outer-value][Green:world]" );
 
     // test_case!(([Red: "hello"] stringy.value() [Green: "world"])
     //     => plain: "helloNikoworld"

@@ -30,6 +30,15 @@ where
     HighLevel(HighLevel<Ctx>),
 }
 
+impl<Ctx> Into<Structure<Ctx>> for &'static str
+where
+    Ctx: StringContext,
+{
+    fn into(self) -> Structure<Ctx> {
+        Structure::Primitive(Primitive::Fragment(Ctx::plain_repr(self.into()).into()))
+    }
+}
+
 impl<Ctx> Clone for Structure<Ctx>
 where
     Ctx: StringContext,
@@ -39,15 +48,6 @@ where
             Structure::Primitive(p) => Structure::Primitive(p.clone()),
             Structure::HighLevel(h) => Structure::HighLevel(h.clone()),
         }
-    }
-}
-
-impl<Ctx> From<&'static str> for Structure<Ctx>
-where
-    Ctx: StringContext,
-{
-    fn from(string: &'static str) -> Self {
-        Structure::Primitive(Primitive::Fragment(string.into()))
     }
 }
 
@@ -215,6 +215,8 @@ where
         Structure::Primitive(Primitive::Fragment(frag.into()))
     }
 
+    // pub fn add(self, s: )
+
     pub fn append(self, structure: impl Into<Structure<Ctx>>) -> Structure<Ctx> {
         match self {
             Structure::Primitive(p) => Structure::Primitive(p.append(structure)),
@@ -236,10 +238,10 @@ impl<Ctx> Render<Ctx> for Structure<Ctx>
 where
     Ctx: StringContext,
 {
-    fn into_primitive(self, recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx> {
         match self {
             Structure::Primitive(p) => p,
-            Structure::HighLevel(h) => h.into_primitive(recursive),
+            Structure::HighLevel(h) => h.into_primitive(ctx, recursive),
         }
     }
 }

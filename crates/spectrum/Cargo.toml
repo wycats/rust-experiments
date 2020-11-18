@@ -18,6 +18,7 @@ pretty = "0.10.0"
 arrayvec = "0.5.2"
 lazy_static = "1.4.0"
 modular-bitfield = "0.11.2"
+bimap = "0.5.3"
 
 [dev-dependencies]
 textwrap = "0.12.1"

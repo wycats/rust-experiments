@@ -3,7 +3,7 @@ pub mod nested;
 
 use crate::{
     render::RenderConfig, render::RenderState, string::copy_string::StringContext, Style,
-    StyledDoc, StyledString, BOUNDARY, GAP,
+    StyledDoc, BOUNDARY, GAP,
 };
 
 use self::{join::JoinList, nested::NestedStructure};
@@ -15,20 +15,20 @@ pub trait DynRender<Ctx>: std::fmt::Debug
 where
     Ctx: StringContext,
 {
-    fn into_primitive(&self, recursive: bool) -> Primitive<Ctx>;
+    fn into_primitive(&self, ctx: &Ctx, recursive: bool) -> Primitive<Ctx>;
 
     fn clone_dyn_render(&self) -> Box<dyn DynRender<Ctx>>;
 
-    fn render(&self, ctx: &Ctx) -> StyledDoc<Ctx> {
+    fn render(&self, ctx: &mut Ctx) -> StyledDoc<Ctx> {
         self.render_with_state(&RenderState::default(), ctx)
     }
 
-    fn render_with_config(&self, config: RenderConfig, ctx: &Ctx) -> StyledDoc<Ctx> {
+    fn render_with_config(&self, config: RenderConfig, ctx: &mut Ctx) -> StyledDoc<Ctx> {
         self.render_with_state(&RenderState::top(config), ctx)
     }
 
-    fn render_with_state(&self, state: &RenderState, ctx: &Ctx) -> StyledDoc<Ctx> {
-        self.into_primitive(true).render_with_state(state, ctx)
+    fn render_with_state(&self, state: &RenderState, ctx: &mut Ctx) -> StyledDoc<Ctx> {
+        self.into_primitive(ctx, true).render_with_state(state, ctx)
     }
 }
 
@@ -96,23 +96,23 @@ impl<Ctx> Render<Ctx> for HighLevel<Ctx>
 where
     Ctx: StringContext,
 {
-    fn into_primitive(self, recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx> {
         match self {
-            HighLevel::DelimitedList(d) => d.into_primitive(recursive),
-            HighLevel::Nested(nested) => nested.into_primitive(recursive),
-            HighLevel::HighLevel(r) => r.into_primitive(recursive),
+            HighLevel::DelimitedList(d) => d.into_primitive(ctx, recursive),
+            HighLevel::Nested(nested) => nested.into_primitive(ctx, recursive),
+            HighLevel::HighLevel(r) => r.into_primitive(ctx, recursive),
             HighLevel::Gap => Primitive::Alt {
                 inline: Box::new(Structure::Primitive(Primitive::Fragment(
-                    StyledString::str(" ", Style::default()).into(),
+                    ctx.styled(" ".into(), Style::default()).into(),
                 ))),
                 block: Box::new(Structure::Primitive(Primitive::Hardline)),
             },
-            HighLevel::GapHint => GAP().into_primitive(recursive).group(),
+            HighLevel::GapHint => GAP().into_primitive(ctx, recursive).group(),
             HighLevel::Boundary => Primitive::Alt {
                 inline: Box::new(Structure::Primitive(Primitive::Empty)),
                 block: Box::new(Structure::Primitive(Primitive::Hardline)),
             },
-            HighLevel::BoundaryHint => BOUNDARY().into_primitive(recursive).group(),
+            HighLevel::BoundaryHint => BOUNDARY().into_primitive(ctx, recursive).group(),
         }
     }
 }

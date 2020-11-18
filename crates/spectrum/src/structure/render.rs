@@ -77,22 +77,22 @@ where
 {
     fn render(self) -> StyledDoc<Ctx>
     where
-        Ctx: StringContext<CustomRepr = ()>,
+        Ctx: StringContext<CustomRepr = &'static str>,
     {
-        self.render_with_state(&RenderState::default(), &Ctx::default())
+        self.render_with_state(&RenderState::default(), &mut Ctx::default())
     }
 
-    fn render_with(self, ctx: &Ctx) -> StyledDoc<Ctx> {
+    fn render_with(self, ctx: &mut Ctx) -> StyledDoc<Ctx> {
         self.render_with_state(&RenderState::default(), ctx)
     }
 
-    fn render_with_config(self, config: RenderConfig, ctx: &Ctx) -> StyledDoc<Ctx> {
+    fn render_with_config(self, config: RenderConfig, ctx: &mut Ctx) -> StyledDoc<Ctx> {
         self.render_with_state(&RenderState::top(config), ctx)
     }
 
-    fn render_with_state(self, state: &RenderState, ctx: &Ctx) -> StyledDoc<Ctx> {
-        self.into_primitive(true).render_with_state(state, ctx)
+    fn render_with_state(self, state: &RenderState, ctx: &mut Ctx) -> StyledDoc<Ctx> {
+        self.into_primitive(ctx, true).render_with_state(state, ctx)
     }
 
-    fn into_primitive(self, recursive: bool) -> Primitive<Ctx>;
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx>;
 }

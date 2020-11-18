@@ -31,10 +31,10 @@ impl<Ctx> Render<Ctx> for NestedStructure<Ctx>
 where
     Ctx: StringContext,
 {
-    fn into_primitive(self, recursive: bool) -> Primitive<Ctx> {
-        let prefix = self.prefix.into_primitive(recursive);
-        let postfix = self.postfix.into_primitive(recursive);
-        let body = self.body.into_primitive(recursive);
+    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<Ctx> {
+        let prefix = self.prefix.into_primitive(ctx, recursive);
+        let postfix = self.postfix.into_primitive(ctx, recursive);
+        let body = self.body.into_primitive(ctx, recursive);
 
         Primitive::Empty
             .append(prefix)
@@ -61,7 +61,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{structure::prelude::*, Style, StyledString, GAP, GAP_HINT};
+    use crate::{string::copy_string::SimpleContext, structure::prelude::*, Style, GAP, GAP_HINT};
     use std::error::Error;
 
     use console::{Attribute, Color};
@@ -70,11 +70,8 @@ mod tests {
 
     use super::*;
 
-    fn frag<Ctx>(s: &'static str, style: impl Into<Style>) -> Structure<Ctx>
-    where
-        Ctx: StringContext,
-    {
-        Structure::fragment(StyledString::str(s, style.into()))
+    fn frag(s: &'static str, style: impl Into<Style>) -> Structure<SimpleContext> {
+        Structure::fragment(SimpleContext.styled(s, style))
     }
 
     #[test]
@@ -83,7 +80,11 @@ mod tests {
         let blue = frag("it-is-blue", Color::Blue);
         let bold = frag("it-is-bold", Attribute::Bold);
 
-        let structure = Nested("(", vec![red, blue, bold].join(GAP()), ")");
+        let structure = Nested(
+            SimpleContext.plain("("),
+            vec![red, blue, bold].join(GAP()),
+            SimpleContext.plain(")"),
+        );
 
         assert_eq!(
             render(&structure, &EmitForTest, 100)?,
@@ -109,7 +110,11 @@ mod tests {
         let blue = frag("it-is-blue", Color::Blue);
         let bold = frag("it-is-bold", Attribute::Bold);
 
-        let structure = Nested("(", vec![red, blue, bold].join(GAP_HINT()), ")");
+        let structure = Nested(
+            SimpleContext.plain("("),
+            vec![red, blue, bold].join(GAP_HINT()),
+            SimpleContext.plain(")"),
+        );
 
         assert_eq!(
             render(&structure, &EmitForTest, 100)?,
@@ -135,9 +140,9 @@ mod tests {
         let blue = frag("it-is-blue", Color::Blue);
         let bold = frag("it-is-bold", Attribute::Bold);
 
-        let doc = Doc("(")
+        let doc: Structure<SimpleContext> = Doc(SimpleContext.plain("("))
             .append_group(vec![red, blue, bold].join(GAP_HINT()).nest())
-            .append(")");
+            .append(SimpleContext.plain(")"));
 
         assert_eq!(
             render(&doc, &EmitForTest, 100)?,
@@ -163,7 +168,7 @@ mod tests {
         let blue = frag("it-is-blue", Color::Blue);
         let bold = frag("it-is-bold", Attribute::Bold);
 
-        let doc = Doc("(")
+        let doc = Doc(SimpleContext.plain("("))
             .append_group(
                 vec![red, blue, bold]
                     .join(GAP_HINT())
@@ -171,7 +176,7 @@ mod tests {
                     // were inserted, make a newline at the end
                     .wrapping_nest(BOUNDARY_HINT(), BOUNDARY()),
             )
-            .append(")");
+            .append(SimpleContext.plain(")"));
 
         assert_eq!(
             render(&doc, &EmitForTest, 100)?,

@@ -137,7 +137,7 @@ impl<Ctx> Render<Ctx> for Primitive<Ctx>
 where
     Ctx: StringContext,
 {
-    fn render_with_state(self, state: &RenderState, ctx: &Ctx) -> StyledDoc<Ctx> {
+    fn render_with_state(self, state: &RenderState, ctx: &mut Ctx) -> StyledDoc<Ctx> {
         match self {
             // A `Primitive::Empty` is equivalent to `Doc::Nil`
             Primitive::Empty => BoxDoc::nil(),
@@ -182,7 +182,7 @@ where
         }
     }
 
-    fn into_primitive(self, _recursive: bool) -> Primitive<Ctx> {
+    fn into_primitive(self, _ctx: &mut Ctx, _recursive: bool) -> Primitive<Ctx> {
         self
     }
 }
