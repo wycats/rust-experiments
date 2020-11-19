@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+mod compose;
 pub mod high_level;
 mod nonempty;
 pub mod prelude;

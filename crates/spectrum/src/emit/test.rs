@@ -7,7 +7,7 @@ use crate::{EmitBackendTrait, EmitResult};
 pub struct EmitForTest;
 
 impl EmitBackendTrait for EmitForTest {
-    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, style: &Style) -> EmitResult {
+    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, style: Style) -> EmitResult {
         if fragment == "\n" {
             writeln!(f)?;
         } else {

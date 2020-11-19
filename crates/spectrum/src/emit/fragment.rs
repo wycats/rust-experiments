@@ -94,9 +94,9 @@ where
     ) -> EmitResult {
         match self {
             StyledFragment::String(s) => {
-                backend.emit(f, &ctx.repr_as_string(Repr::new(s.string)), &s.style)
+                backend.emit(f, &ctx.repr_as_string(Repr::new(s.string)), s.style)
             }
-            StyledFragment::Newline => backend.emit(f, "\n", &Style::default()),
+            StyledFragment::Newline => backend.emit(f, "\n", Style::default()),
             StyledFragment::Line(line) => {
                 for fragment in line.line.iter() {
                     fragment.emit_into_formatter(f, backend, ctx)?
@@ -260,13 +260,13 @@ where
 /// An implementation of `EmitBackendTrait` takes a piece of styled text and emits it into the
 /// supplied [std::fmt::Formatter].
 pub trait EmitBackendTrait {
-    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, style: &Style) -> EmitResult;
+    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, style: Style) -> EmitResult;
 }
 
 pub struct EmitColored;
 
 impl EmitBackendTrait for EmitColored {
-    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, style: &Style) -> EmitResult {
+    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, style: Style) -> EmitResult {
         write!(f, "{}", style.apply_to(fragment)).map_err(EmitError::new)
     }
 }
@@ -274,7 +274,7 @@ impl EmitBackendTrait for EmitColored {
 pub struct EmitPlain;
 
 impl EmitBackendTrait for EmitPlain {
-    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, _style: &Style) -> EmitResult {
+    fn emit(&self, f: &mut Formatter<'_>, fragment: &str, _style: Style) -> EmitResult {
         write!(f, "{}", fragment).map_err(EmitError::new)
     }
 }
