@@ -1,1 +1,0 @@
-mod pretty_playground_smoke;

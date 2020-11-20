@@ -1,7 +1,5 @@
 use derive_new::new;
 
-use crate::{string::copy_string::StringContext, Primitive, StyledDoc};
-
 #[derive(Debug, Copy, Clone)]
 pub enum Nesting {
     Exact(isize),
@@ -10,10 +8,23 @@ pub enum Nesting {
 
 #[derive(Debug, Copy, Clone, new)]
 pub struct RenderConfig {
-    indent_size: isize,
+    pub indent_size: isize,
+    pub column_size: usize,
 }
 
 impl RenderConfig {
+    pub fn width(page_size: usize) -> RenderConfig {
+        RenderConfig {
+            indent_size: 2,
+            column_size: page_size,
+        }
+    }
+
+    pub fn indent_size(mut self, size: isize) -> RenderConfig {
+        self.indent_size = size;
+        self
+    }
+
     pub fn size(&self, nesting: Nesting) -> isize {
         match nesting {
             Nesting::Exact(size) => size,
@@ -24,7 +35,10 @@ impl RenderConfig {
 
 impl Default for RenderConfig {
     fn default() -> Self {
-        RenderConfig { indent_size: 2 }
+        RenderConfig {
+            indent_size: 2,
+            column_size: 80,
+        }
     }
 }
 
@@ -69,27 +83,4 @@ impl RenderState {
             nesting: self.nesting + 1,
         }
     }
-}
-
-pub trait Render<'a, Ctx>: 'a + Sized
-where
-    Ctx: StringContext<'a> + 'a,
-{
-    fn render(self) -> StyledDoc<'a, Ctx> {
-        self.render_with_state(&RenderState::default(), &mut Ctx::default())
-    }
-
-    fn render_with<'b>(self, ctx: &'b mut Ctx) -> StyledDoc<'a, Ctx> {
-        self.render_with_state(&RenderState::default(), ctx)
-    }
-
-    fn render_with_config<'b>(self, config: RenderConfig, ctx: &'b mut Ctx) -> StyledDoc<'a, Ctx> {
-        self.render_with_state(&RenderState::top(config), ctx)
-    }
-
-    fn render_with_state<'b>(self, state: &RenderState, ctx: &'b mut Ctx) -> StyledDoc<'a, Ctx> {
-        self.into_primitive(ctx, true).render_with_state(state, ctx)
-    }
-
-    fn into_primitive(self, ctx: &mut Ctx, recursive: bool) -> Primitive<'a, Ctx>;
 }

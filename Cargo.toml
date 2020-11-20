@@ -48,6 +48,7 @@ laboratory-test-helpers = { path = "./crates/test-helpers" }
 spectrum-macros = { path = "./crates/spectrum-macros" }
 spectrum = { path = "./crates/spectrum" }
 trybuild = { version = "1.0.35", features = ["diff"] }
+textwrap = "0.12.1"
 
 [build-dependencies]
 handlebars = "3.5.1"

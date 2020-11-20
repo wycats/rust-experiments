@@ -21,16 +21,18 @@
   },
   "rust-analyzer.cargo.loadOutDirsFromCheck": true,
   "rust-analyzer.procMacro.enable": true,
-  "rust-analyzer.cargo.allFeatures": true,
-  "rust-analyzer.checkOnSave.allFeatures": true,
-  "rust-analyzer.checkOnSave.allTargets": true,
-  "rust-analyzer.diagnostics.enableExperimental": false,
-  "rust-analyzer.files.watcher": "notify",
-  "rust-analyzer.lens.methodReferences": true,
+  // "rust-analyzer.cargo.allFeatures": true,
+  // "rust-analyzer.checkOnSave.allFeatures": true,
+  // "rust-analyzer.checkOnSave.allTargets": true,
+  // "rust-analyzer.diagnostics.enableExperimental": true,
+  // "rust-analyzer.files.watcher": "notify",
+  // "rust-analyzer.lens.methodReferences": true,
   "rust-analyzer.updates.askBeforeDownload": false,
   "rust-analyzer.updates.channel": "nightly",
   "[handlebars]": {
     "editor.suggest.insertMode": "replace",
     "editor.formatOnSave": false
-  }
+  },
+  "rust-analyzer.assist.importPrefix": "by_self",
+  "rust-analyzer.cargo.allFeatures": true
 }

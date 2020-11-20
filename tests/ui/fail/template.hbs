@@ -1,17 +1,18 @@
 use spectrum_macros::frag;
-use spectrum::{SimpleContext, StyledFragment};
 
 struct Stringy {
-    value: String,
+    value: &'static str
 }
+
 impl Stringy {
-    fn value(&self) -> &str {
-        &self.value
+    fn value(&self) -> &'static str {
+        self.value
     }
 }
+
 fn main() {
-    let stringy = Stringy {
-        value: "Niko".to_string(),
-    };
-    let value: StyledFragment<SimpleContext> = frag!({{{code}}});
+    let tuple = ("value-1", "value-2");
+    let stringy = Stringy { value: "Niko" };
+
+    let value = frag!({{{code}}});
 }

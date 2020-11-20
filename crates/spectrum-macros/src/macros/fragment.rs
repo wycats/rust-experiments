@@ -2,7 +2,7 @@
 
 use proc_macro2::TokenStream;
 use quote::{ToTokens, TokenStreamExt};
-use tt_call::{tt_call, tt_return};
+use tt_call::tt_call;
 
 use quote::quote;
 use syn::{bracketed, parse::Parse, parse::ParseStream, token, Expr, ExprLit, Ident, Lit};
@@ -15,17 +15,20 @@ pub(crate) struct Bracketed {
     value: Expr,
 }
 
+#[allow(unused)]
+use spectrum::{plain, styled, Color};
+
 impl ToTokens for Bracketed {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self { style, value } = self;
 
-        tokens.extend(quote! {{
-            extern crate spectrum;
+        tokens.extend(quote_using! {
+            [spectrum::styled, spectrum::Color, spectrum::Doc] => {
+                use #Doc;
 
-            use spectrum::{Color, StyledString, StringContext, Style};
-            let string = StringContext::styled((#value), Color::#style);
-            string.into()
-        }})
+                #styled((#value), #Color::#style.into()).boxed()
+            }
+        })
     }
 }
 
@@ -50,73 +53,16 @@ pub(crate) enum FragmentItem {
     Newline(Token![;]),
 }
 
-macro_rules! tail {
-    (
-        $caller:tt
-        path = [{ $head:ident :: $($rest:tt)* }]
-    ) => {
-        tt_call! {
-            macro = [{ tail }]
-            path = [{ $($rest)* }]
-        }
-    };
-
-    (
-        $caller:tt
-        path = [{ $head:ident }]
-    ) => {
-        tt_return! {
-            $caller
-            is = [{ $head }]
-        }
-    };
-}
-
-macro_rules! quote_using {
-    ([ $($uses:tt)* ] => $rest:tt) => {{
-        quote_using! (
-            uses = {} rest = { [ $($uses)*, ] => $rest }
-        )
-    }};
-
-    (uses = { $({ $($stmt:tt)* })* } rest = { [] => $rest:tt }) => {{
-        $(
-            $($stmt)*
-        )*
-
-        quote::quote! { $rest }
-    }};
-
-    (uses = { $($stmt:tt)* } rest = { [ $head:tt $(:: $import:tt)*, $($rest_use:tt)* ] => $rest:tt }) => {
-        quote_using! {
-            uses = {
-                $($stmt)*
-                { let tt_call! { macro = [{ tail }] path = [{ $head $(:: $import)* }] } = quote! { $head $(:: $import)* }; }
-            }
-            rest = {
-                [ $($rest_use)* ] => $rest
-            }
-        }
-    };
-
-    (uses = { $({ $stmt:stmt })* } rest = { [$head:tt $(:: $import:tt)*] => $rest:tt }) => {
-        $(
-            $stmt
-        )*
-        let tt_call! { macro = [{ tail }] path = [{ $head $(:: $import)* }] } = quote! { $head $(:: $import)* };
-
-        $rest
-    };
-}
-
 impl ToTokens for FragmentItem {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             FragmentItem::Bracketed(bracketed) => tokens.append_all(Some(bracketed)),
             FragmentItem::String(expr) => {
                 let quoted = quote_using! {
-                    [spectrum::StringContext] => {
-                        #StringContext::plain(#expr).into()
+                    [spectrum::plain, spectrum::Doc] => {
+                        use #Doc;
+
+                        #plain(#expr).boxed()
                     }
                 };
 
@@ -124,14 +70,18 @@ impl ToTokens for FragmentItem {
             }
             FragmentItem::Expr(expr) => {
                 tokens.extend(quote_using! {
-                    [spectrum::StringContext] => {
-                        #StringContext::plain(#expr).into()
+                    [spectrum::plain, spectrum::Doc] => {
+                        use #Doc;
+
+                        #plain(#expr).boxed()
                     }
                 });
             }
             FragmentItem::Newline(_) => tokens.extend(quote_using! {
-                [spectrum::StringContext] => {
-                    #StringContext::plain("\n").into()
+                [spectrum::plain, spectrum::Doc] => {
+                    use #Doc;
+
+                    #plain("\n").boxed()
                 }
             }),
         }

@@ -1,9 +1,9 @@
 #[macro_use]
 mod macros;
 
+pub mod backend;
 pub mod buf;
 pub mod error;
-pub mod fragment;
 pub mod into;
 pub mod style;
 pub mod test;

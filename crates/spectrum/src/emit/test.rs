@@ -1,8 +1,6 @@
 use std::fmt::Formatter;
 
-use crate::Style;
-
-use crate::{EmitBackendTrait, EmitResult};
+use crate::{EmitBackendTrait, EmitResult, Style};
 
 pub struct EmitForTest;
 

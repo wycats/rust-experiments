@@ -1,6 +1,9 @@
 use pretty::{DocAllocator, DocPtr};
 
-use crate::EmitBackendTrait;
+use crate::{
+    render::{RenderConfig, RenderState},
+    EmitBackendTrait,
+};
 
 use super::{cow_mut::CowMut, renderer::Renderer, Doc, Styled, StyledArena};
 
@@ -22,14 +25,15 @@ impl<'arena, 'writer> RenderContext<'arena, 'writer> {
     #[allow(unused)]
     pub fn render(
         &'arena mut self,
-        doc: &'arena impl Doc,
+        doc: &'arena dyn Doc,
         backend: impl EmitBackendTrait + 'arena,
-        columns: usize,
+        config: RenderConfig,
     ) -> Result<(), std::fmt::Error> {
         // let string = Buf::collect_string(|writer| {
         let mut renderer = Renderer::new(self.writer.to_mut(), backend);
-        let doc = doc.render(&self.arena);
-        doc.into_doc().render_raw(columns, &mut renderer)?;
+        let doc = doc.render(&self.arena, RenderState::top(config));
+        doc.into_doc()
+            .render_raw(config.column_size, &mut renderer)?;
 
         Ok(())
         // })?;

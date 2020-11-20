@@ -1,26 +1,22 @@
 #![allow(unused)]
 
 use spectrum_macros::frag;
-use spectrum::{SimpleContext, Structure, StringArena, StyledFragment};
 
 struct Stringy {
-    value: String,
+    value: &'static str
 }
+
 impl Stringy {
-    fn value(&self) -> &str {
-        &self.value
+    fn value(&self) -> &'static str {
+        self.value
     }
 }
 
 fn main() {
-    let mut arena = StringArena::default();
+    let tuple = ("value-1", "value-2");
+    let stringy = Stringy { value: "Niko" };
 
-    let tuple = ("hello","world");
-
-    let stringy = Stringy {
-        value: "Niko".to_string(),
-    };
-    let value: StyledFragment<StringArena> = frag!({{{code}}});
+    let value = frag!({{{code}}});
 }
 ---
 [Red: "hello"]
@@ -33,8 +29,6 @@ fn main() {
 ---
 [Red: "hello"] stringy.value() [Green: "world"]
 ---
-[Red: "hello"] arena.intern(1 + 1) [Green: "world"]
----
 [Red: "hello"] ; [Green: "world"]
 ---
 "hello" ; "world"
@@ -43,4 +37,3 @@ fn main() {
 ---
 [Red: "hello"] tuple.0 [Green: "world"] ; [Red: "goodbye"] tuple.1 [Green: "world"]
 ---
-[Red: "hello"] stringy.value() [Green: "world"] ; [Red: stringy.value()]
