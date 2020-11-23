@@ -5,25 +5,6 @@ use crate::NonemptyList;
 
 use super::Doc;
 
-#[macro_export]
-macro_rules! join {
-    ($items:expr, with $delimiter:expr, trail) => {
-        join!(generate $items, with $delimiter, trail = true)
-    };
-
-    ($items:expr, with $delimiter:expr) => {
-        join!(generate $items, with $delimiter, trail = false)
-    };
-
-    (generate $items:expr, with $delimiter:expr, trail = $trail:tt) => {
-        $crate::structure::compose::join::JoinList::new(
-            Box::new($delimiter),
-            $crate::structure::nonempty::NonemptyList::new($items),
-            $trail,
-        )
-    };
-}
-
 #[derive(Debug, new)]
 pub struct JoinList {
     delimiter: Box<dyn Doc>,

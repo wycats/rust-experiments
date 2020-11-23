@@ -3,6 +3,9 @@
  */
 
 #[macro_use]
+pub mod macros;
+
+#[macro_use]
 pub mod frag;
 
 #[macro_use]
@@ -26,6 +29,7 @@ pub use self::list::{DocList, Group};
 pub use docs::*;
 use pretty::DocAllocator;
 
+#[derive(Debug, Clone)]
 pub enum Styled<'ctx> {
     Fragment { fragment: &'ctx str, style: Style },
 }
@@ -103,7 +107,7 @@ mod tests {
     use textwrap::dedent;
 
     #[test]
-    fn compose_smoke() -> TestResult {
+    fn compose_smoke_spectrum() -> TestResult {
         let expected_block = strip(
             r#"
             function HelloWorld({
@@ -115,7 +119,7 @@ mod tests {
         "#,
         );
 
-        let expected_inline = "function HelloWorld({ greeting = \"hello\", greeted = '\"World\"', silent = false, onMouseOver }) {}\n";
+        let expected_inline = "function HelloWorld({ greeting = \"hello\", greeted = '\"World\"', silent = false, onMouseOver }) {}";
 
         let doc = list![
             "function ",
@@ -123,21 +127,27 @@ mod tests {
             group![
                 "(",
                 "{",
-                group![
-                    group!["greeting", " = ", r#""hello""#],
-                    ",",
-                    GAP(),
-                    group!["greeted", " = ", r#"'"World"'"#],
-                    ",",
-                    GAP(),
-                    group!["silent", " = ", "false"],
-                    ",",
-                    GAP(),
-                    group!["onMouseOver"],
-                    either! { inline: empty(), block: "," }
+                nest![
+                    {
+                        group!["greeting", " = ", r#""hello""#],
+                        ",",
+                        GAP(),
+                        group!["greeted", " = ", r#"'"World"'"#],
+                        ",",
+                        GAP(),
+                        group!["silent", " = ", "false"],
+                        ",",
+                        GAP(),
+                        group!["onMouseOver"],
+                        either! { inline: empty(), block: "," }
+                    }
+                    before = GAP();
+                    after = GAP();
                 ],
                 "}",
-                ")"
+                ")",
+                " ",
+                "{}"
             ]
         ];
 
@@ -158,7 +168,7 @@ mod tests {
 
     fn strip(input: &str) -> String {
         let lines: Vec<&str> = input.split('\n').collect();
-        let string = lines[1..lines.len()].to_vec().join("\n");
+        let string = lines[1..lines.len() - 1].to_vec().join("\n");
         dedent(&string)
     }
 }

@@ -54,7 +54,7 @@ fn test_line() -> EmitResult {
         => plain: "helloworld"
         => colored: "[Red:hello][Green:world]" );
 
-    test_case!(([Red: "hello"] value.0 [Green: "world"])
+    test_case!(([Red: "hello"] {value.0} [Green: "world"])
         => plain: "helloouter-valueworld"
         => colored: "[Red:hello][normal:outer-value][Green:world]" );
 
@@ -88,7 +88,7 @@ fn test_block() -> EmitResult {
         => plain: "helloworld\ngoodbyeworld"
         => colored: "[Red:hello][Green:world]\n[Red:goodbye][normal:world]" );
 
-    test_case!(([Red: "hello"] (value.0) [Green: "world"] ; [Red: "goodbye"] (value.1) [Green: "world"])
+    test_case!(([Red: "hello"] {value.0} [Green: "world"] ; [Red: "goodbye"] {value.1} [Green: "world"])
         => plain: "hellovalue-1world\ngoodbyevalue-2world"
         => colored: "[Red:hello][normal:value-1][Green:world]\n[Red:goodbye][normal:value-2][Green:world]" );
 

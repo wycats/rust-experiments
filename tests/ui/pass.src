@@ -25,9 +25,9 @@ fn main() {
 ---
 [Red: "hello"] [Green: "world"]
 ---
-[Red: "hello"] tuple.0 [Green: "world"]
+[Red: "hello"] {tuple.0} [Green: "world"]
 ---
-[Red: "hello"] stringy.value() [Green: "world"]
+[Red: "hello"] {stringy.value()} [Green: "world"]
 ---
 [Red: "hello"] ; [Green: "world"]
 ---
@@ -35,5 +35,5 @@ fn main() {
 ---
 [Red: "hello"] [Green: "world"] ; [Red: "goodbye"] "world"
 ---
-[Red: "hello"] tuple.0 [Green: "world"] ; [Red: "goodbye"] tuple.1 [Green: "world"]
+[Red: "hello"] {tuple.0} [Green: "world"] ; [Red: "goodbye"] {tuple.1} [Green: "world"]
 ---

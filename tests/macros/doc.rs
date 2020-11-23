@@ -2,13 +2,13 @@
 
 #[cfg(test)]
 mod tests {
-    use spectrum::{either, empty, prelude::*, EmitBackendTrait};
+    use spectrum::{either, empty, nest, prelude::*, EmitBackendTrait};
     use spectrum::{group, list};
     use spectrum::{prelude::test::*, GAP};
     use textwrap::dedent;
 
     #[test]
-    fn compose_smoke() -> TestResult {
+    fn compose_smoke_macros() -> TestResult {
         let expected_block = strip(
             r#"
             function HelloWorld({
@@ -20,7 +20,7 @@ mod tests {
         "#,
         );
 
-        let expected_inline = "function HelloWorld({ greeting = \"hello\", greeted = '\"World\"', silent = false, onMouseOver }) {}\n";
+        let expected_inline = "function HelloWorld({ greeting = \"hello\", greeted = '\"World\"', silent = false, onMouseOver }) {}";
 
         let doc = list![
             "function ",
@@ -28,21 +28,27 @@ mod tests {
             group![
                 "(",
                 "{",
-                group![
-                    group!["greeting", " = ", r#""hello""#],
-                    ",",
-                    GAP(),
-                    group!["greeted", " = ", r#"'"World"'"#],
-                    ",",
-                    GAP(),
-                    group!["silent", " = ", "false"],
-                    ",",
-                    GAP(),
-                    group!["onMouseOver"],
-                    either! { inline: empty(), block: "," }
+                nest![
+                    {
+                        group!["greeting", " = ", r#""hello""#],
+                        ",",
+                        GAP(),
+                        group!["greeted", " = ", r#"'"World"'"#],
+                        ",",
+                        GAP(),
+                        group!["silent", " = ", "false"],
+                        ",",
+                        GAP(),
+                        group!["onMouseOver"],
+                        either! { inline: empty(), block: "," }
+                    }
+                    before = GAP();
+                    after = GAP();
                 ],
                 "}",
-                ")"
+                ")",
+                " ",
+                "{}"
             ]
         ];
 
@@ -63,7 +69,7 @@ mod tests {
 
     fn strip(input: &str) -> String {
         let lines: Vec<&str> = input.split('\n').collect();
-        let string = lines[1..lines.len()].to_vec().join("\n");
+        let string = lines[1..lines.len() - 1].to_vec().join("\n");
         dedent(&string)
     }
 }

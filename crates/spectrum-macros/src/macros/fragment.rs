@@ -5,52 +5,55 @@ use quote::{ToTokens, TokenStreamExt};
 use tt_call::tt_call;
 
 use quote::quote;
-use syn::{bracketed, parse::Parse, parse::ParseStream, token, Expr, ExprLit, Ident, Lit};
+use syn::{bracketed, parse::Parse, parse::ParseStream, token, Block, Expr, ExprLit, Ident, Lit};
 use syn::{parse::discouraged::Speculative, Token};
-
-use super::expr::SimpleExpr;
-
-pub(crate) struct Bracketed {
-    style: Ident,
-    value: Expr,
-}
-
-#[allow(unused)]
-use spectrum::{plain, styled, Color};
-
-impl ToTokens for Bracketed {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let Self { style, value } = self;
-
-        tokens.extend(quote_using! {
-            [spectrum::styled, spectrum::Color, spectrum::Doc] => {
-                use #Doc;
-
-                #styled((#value), #Color::#style.into()).boxed()
-            }
-        })
-    }
-}
-
-impl Parse for Bracketed {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let style: Ident = input.parse()?;
-        let _: token::Colon = input.parse()?;
-        let expr: Expr = input.parse()?;
-
-        if input.is_empty() {
-            Ok(Bracketed { style, value: expr })
-        } else {
-            Err(input.error("Unexpected content after bracketed styled fragment"))
-        }
-    }
-}
 
 pub(crate) enum FragmentItem {
     Bracketed(Bracketed),
     String(Expr),
-    Expr(SimpleExpr),
+    Expr(Block),
     Newline(Token![;]),
+}
+
+impl Parse for FragmentItem {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
+
+        if lookahead.peek(Token![;]) {
+            let semi: Token![;] = input.parse().unwrap();
+            return Ok(FragmentItem::Newline(semi));
+        }
+
+        if lookahead.peek(token::Bracket) {
+            let content;
+            bracketed!(content in input);
+            let bracketed = Bracketed::parse(&content)
+                .map_err(|_| input.error("Wrong content found inside [...]"))?;
+            return Ok(FragmentItem::Bracketed(bracketed));
+        }
+
+        if lookahead.peek(token::Brace) {
+            // let content;
+            // braced!(content in input);
+            let expr = Block::parse(&input)
+                .map_err(|_| input.error("Expected a Rust block inside {...}"))?;
+            return Ok(FragmentItem::Expr(expr));
+        }
+
+        let fork = input.fork();
+
+        if let Ok(
+            expr @ ExprLit {
+                lit: Lit::Str(_), ..
+            },
+        ) = fork.parse::<ExprLit>()
+        {
+            input.advance_to(&fork);
+            return Ok(FragmentItem::String(Expr::Lit(expr)));
+        }
+
+        Err(input.error("Expected a document fragment"))
+    }
 }
 
 impl ToTokens for FragmentItem {
@@ -88,6 +91,42 @@ impl ToTokens for FragmentItem {
     }
 }
 
+pub(crate) struct Bracketed {
+    style: Ident,
+    value: Expr,
+}
+
+#[allow(unused)]
+use spectrum::{plain, styled, Color};
+
+impl ToTokens for Bracketed {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self { style, value } = self;
+
+        tokens.extend(quote_using! {
+            [spectrum::styled, spectrum::Color, spectrum::Doc] => {
+                use #Doc;
+
+                #styled((#value), #Color::#style.into()).boxed()
+            }
+        })
+    }
+}
+
+impl Parse for Bracketed {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let style: Ident = input.parse()?;
+        let _: token::Colon = input.parse()?;
+        let expr: Expr = input.parse()?;
+
+        if input.is_empty() {
+            Ok(Bracketed { style, value: expr })
+        } else {
+            Err(input.error("Unexpected content after bracketed styled fragment"))
+        }
+    }
+}
+
 pub(crate) struct Fragment {
     pub(crate) exprs: Vec<FragmentItem>,
 }
@@ -101,39 +140,7 @@ impl Parse for Fragment {
                 break;
             }
 
-            let lookahead = input.lookahead1();
-
-            if lookahead.peek(Token![;]) {
-                let semi: Token![;] = input.parse().unwrap();
-                exprs.push(FragmentItem::Newline(semi));
-                continue;
-            }
-
-            if lookahead.peek(token::Bracket) {
-                let content;
-                bracketed!(content in input);
-                let bracketed = Bracketed::parse(&content)
-                    .map_err(|_| input.error("Wrong content found inside [...]"))?;
-                exprs.push(FragmentItem::Bracketed(bracketed));
-                continue;
-            }
-
-            let fork = input.fork();
-
-            if let Ok(
-                expr @ ExprLit {
-                    lit: Lit::Str(_), ..
-                },
-            ) = fork.parse::<ExprLit>()
-            {
-                exprs.push(FragmentItem::String(Expr::Lit(expr)));
-                input.advance_to(&fork);
-                continue;
-            }
-
-            let expr = fork.parse::<SimpleExpr>()?;
-            input.advance_to(&fork);
-            exprs.push(FragmentItem::Expr(expr));
+            exprs.push(FragmentItem::parse(&input)?);
         }
 
         Ok(Fragment { exprs })

@@ -50,18 +50,6 @@ impl Doc for DocList {
     }
 }
 
-#[macro_export]
-macro_rules! nest {
-    (=> $start_gap:expr ; $structure:expr ; $end_gap:expr) => {
-        $crate::structure::compose::list::Nested::new(
-            $crate::structure::render::Nesting::Configured(1),
-            Box::new($structure),
-            Box::new($start_gap),
-            Box::new($end_gap),
-        )
-    };
-}
-
 #[derive(Debug, new)]
 pub struct Nested {
     indent: Nesting,
@@ -83,11 +71,10 @@ impl Doc for Nested {
             end_gap,
         } = self;
 
-        ctx.nil().append(start_gap.render(ctx, state)).append(
-            structure
-                .render(ctx, state)
-                .nest(state.size(*indent))
-                .append(end_gap.render(ctx, state).group()),
-        )
+        start_gap
+            .render(ctx, state)
+            .append(structure.render(ctx, state))
+            .nest(state.size(*indent))
+            .append(end_gap.render(ctx, state))
     }
 }

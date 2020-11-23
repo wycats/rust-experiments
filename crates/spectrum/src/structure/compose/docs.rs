@@ -5,71 +5,6 @@ use crate::{render::RenderState, Style};
 use super::{BoxedDoc, Doc, Styled};
 use super::{StyledArena, StyledDoc};
 
-#[macro_export]
-macro_rules! list {
-    ($($expr:expr),*) => {{
-        $crate::structure::compose::DocList::new($crate::list_impl!($($expr),*))
-    }}
-}
-
-#[macro_export]
-macro_rules! group {
-    ($($expr:expr),*) => {{
-        $crate::structure::compose::Group::new($crate::list_impl!($($expr),*))
-    }}
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! list_impl {
-    ($($expr:expr),*) => {{
-        #[allow(unused)]
-        use $crate::Doc;
-
-        #[allow(unused_mut)]
-        let mut vec: Vec<$crate::BoxedDoc> = vec![];
-
-        $(
-            vec.push($expr.boxed());
-        )*
-
-        vec
-    }}
-}
-
-#[macro_export]
-macro_rules! doc {
-    ($name:ident as $struct_name:ident |$ctx:pat, $state:pat| $expr:expr) => {
-        doc! { generate => $name as $struct_name lt = {} plus = {} struct = { ; } args = {} |_, $ctx, $state| $expr }
-    };
-
-    ($name:ident as $struct_name:ident { $($arg:ident : $arg_ty:ty),* } |$this:pat, $ctx:pat, $state:pat| $expr:expr) => {
-        doc! { generate => $name as $struct_name lt = {} plus = {} struct = { { $($arg : $arg_ty),* } } args = { $($arg : $arg_ty),* } |$this, $ctx, $state| $expr }
-    };
-
-    ($name:ident as $struct_name:ident <$lt:tt> { $($arg:ident : $arg_ty:ty),* } |$this:pat, $ctx:pat, $state:pat| $expr:expr) => {
-        doc! { generate => $name as $struct_name lt = { <$lt> } plus = { + $lt } struct = { { $($arg : $arg_ty),* } } args = { $($arg : $arg_ty),* } |$this, $ctx, $state| $expr }
-    };
-
-    (generate => $name:ident as $struct_name:ident lt = { $($lt:tt)* } plus = { $($plus:tt)* } struct = { $struct:tt } args = { $($arg:ident : $arg_ty:ty),* } |$this:pat, $ctx:pat, $state:pat| $expr:expr) => {
-        #[derive(Debug)]
-        pub struct $struct_name $($lt)* $struct
-
-        impl $($lt)* $crate::structure::compose::Doc for $struct_name $($lt)* {
-            fn render<'ctx>(&'ctx self, $ctx: &'ctx StyledArena<'ctx>, $state: $crate::render::RenderState) -> StyledDoc<'ctx> {
-                let $this = self;
-
-                $expr
-            }
-        }
-
-        #[allow(unused)]
-        pub fn $name$($lt)*($($arg : $arg_ty),*) -> impl $crate::structure::compose::Doc $($plus)* {
-            $struct_name { $($arg),* }
-        }
-    };
-}
-
 doc! {
     plain as Plain<'a> { string: &'a str }
     |plain, ctx, _| ctx.text(plain.string).annotate(Styled::plain(plain.string))
@@ -96,16 +31,6 @@ impl Doc for HardLine {
 doc! {
     either as Either { inline: BoxedDoc, block: BoxedDoc }
     |either, ctx, state| either.block.render(ctx, state).flat_alt(either.inline.render(ctx, state))
-}
-
-#[macro_export]
-macro_rules! either {
-    (inline: $inline:expr, block: $block:expr) => {{
-        use $crate::structure::compose::docs::either;
-        use $crate::Doc;
-
-        either($inline.boxed(), $block.boxed())
-    }};
 }
 
 impl Doc for Box<dyn Doc> {
