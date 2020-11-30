@@ -18,6 +18,7 @@ spectrum = { version = "0.0.0", path = "../spectrum" }
 proc-macro2 = "1.0.24"
 proc-macro-error = "1.0.4"
 tt-call = "1.0.7"
+derive-new = "0.5.8"
 
 [build-dependencies]
 rustc_version = "0.3.0"

@@ -1,4 +1,5 @@
 mod macros;
+mod spectrum;
 
 // use ansi_term::{ANSIGenericStrings, Color, Style};
 // use difference::Difference;

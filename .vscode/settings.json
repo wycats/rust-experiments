@@ -25,7 +25,7 @@
   // "rust-analyzer.checkOnSave.allFeatures": true,
   "rust-analyzer.checkOnSave.allTargets": true,
   // "rust-analyzer.diagnostics.enableExperimental": true,
-  // "rust-analyzer.files.watcher": "notify",
+  "rust-analyzer.files.watcher": "notify",
   // "rust-analyzer.lens.methodReferences": true,
   "rust-analyzer.updates.askBeforeDownload": false,
   "rust-analyzer.updates.channel": "nightly",

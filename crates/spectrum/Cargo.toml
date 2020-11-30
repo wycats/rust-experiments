@@ -20,6 +20,11 @@ lazy_static = "1.4.0"
 modular-bitfield = "0.11.2"
 bimap = "0.5.3"
 difference = "2.0.0"
+ouroboros = "0.5.1"
+rental = "0.5.5"
+owning_ref = "0.4.1"
+pin-project = "1.0.2"
+parking_lot = "0.11.1"
 
 [dev-dependencies]
 textwrap = "0.12.1"

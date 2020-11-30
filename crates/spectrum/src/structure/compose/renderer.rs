@@ -1,28 +1,31 @@
-use crate::{EmitBackendTrait, Style};
+use format::Display;
 
-use super::{cow_mut::CowMut, Styled};
+use crate::{string::intern::Intern, EmitBackendTrait, Fragment, Style};
 
-pub struct Renderer<'ctx> {
+pub struct Renderer<'write, 'intern> {
     ann: bool,
-    write: CowMut<'ctx, dyn std::io::Write>,
-    backend: Box<dyn EmitBackendTrait + 'ctx>,
+    write: &'write mut dyn std::io::Write,
+    intern: &'intern Intern,
+    backend: Box<dyn EmitBackendTrait + 'static>,
 }
 
-impl<'ctx> Renderer<'ctx> {
+impl<'write, 'intern> Renderer<'write, 'intern> {
     #[allow(unused)]
     pub fn new(
-        write: &'ctx mut dyn std::io::Write,
-        backend: impl EmitBackendTrait + 'ctx,
-    ) -> Renderer<'ctx> {
+        write: &'write mut dyn std::io::Write,
+        intern: &'intern Intern,
+        backend: impl EmitBackendTrait,
+    ) -> Renderer<'write, 'intern> {
         Renderer {
             ann: false,
-            write: CowMut::Borrowed(write),
+            intern,
+            write,
             backend: Box::new(backend),
         }
     }
 }
 
-impl<'ctx> pretty::Render for Renderer<'ctx> {
+impl pretty::Render for Renderer<'_, '_> {
     type Error = std::fmt::Error;
 
     fn write_str(&mut self, s: &str) -> Result<usize, Self::Error> {
@@ -31,7 +34,7 @@ impl<'ctx> pretty::Render for Renderer<'ctx> {
         } else {
             let Self { write, backend, .. } = self;
             write!(
-                write.to_mut(),
+                write,
                 "{}",
                 format::lazy_format!(|f| backend
                     .emit(f, s, Style::default())
@@ -48,17 +51,23 @@ impl<'ctx> pretty::Render for Renderer<'ctx> {
     }
 }
 
-impl<'ctx, 'a> pretty::RenderAnnotated<'a, Styled<'ctx>> for Renderer<'ctx> {
-    fn push_annotation(&mut self, annotation: &'a Styled<'ctx>) -> Result<(), Self::Error> {
+impl<'a> pretty::RenderAnnotated<'_, Fragment> for Renderer<'_, '_> {
+    fn push_annotation(&mut self, annotation: &Fragment) -> Result<(), Self::Error> {
         self.ann = true;
 
-        let Self { write, backend, .. } = self;
-        let (str, style) = annotation.as_pair();
+        let Self {
+            write,
+            backend,
+            intern,
+            ..
+        } = self;
 
         write!(
-            write.to_mut(),
+            write,
             "{}",
-            format::lazy_format!(|f| backend.emit(f, str, style).map_err(|_| std::fmt::Error))
+            Display(move |f| backend
+                .emit(f, intern.get(annotation.id()), annotation.style())
+                .map_err(|_| std::fmt::Error))
         )
         .map_err(|_| std::fmt::Error)?;
 

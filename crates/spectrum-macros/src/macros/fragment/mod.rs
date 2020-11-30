@@ -1,18 +1,35 @@
 #![allow(non_snake_case)]
 
+mod style;
+
 use proc_macro2::TokenStream;
+use proc_macro_error::emit_error;
 use quote::{ToTokens, TokenStreamExt};
-use tt_call::tt_call;
 
-use quote::quote;
-use syn::{bracketed, parse::Parse, parse::ParseStream, token, Block, Expr, ExprLit, Ident, Lit};
-use syn::{parse::discouraged::Speculative, Token};
+use style::StyleDescription;
+use syn::{parenthesized, Token};
+use syn::{parse::Parse, parse::ParseStream, token, Block, Expr, ExprLit, Ident, Lit, LitStr};
 
+#[derive(Debug)]
 pub(crate) enum FragmentItem {
     Bracketed(Bracketed),
     String(Expr),
     Expr(Block),
     Newline(Token![;]),
+    Error,
+}
+
+sealed!(FragmentItem);
+
+impl ParseShape for FragmentItem {
+    fn is_valid_hint(input: ParseStream) -> bool {
+        let lookahead = input.lookahead1();
+
+        lookahead.peek(Token![;])
+            || lookahead.peek(token::Paren)
+            || lookahead.peek(token::Brace)
+            || lookahead.peek(LitStr)
+    }
 }
 
 impl Parse for FragmentItem {
@@ -24,12 +41,17 @@ impl Parse for FragmentItem {
             return Ok(FragmentItem::Newline(semi));
         }
 
-        if lookahead.peek(token::Bracket) {
+        if lookahead.peek(token::Paren) {
             let content;
-            bracketed!(content in input);
-            let bracketed = Bracketed::parse(&content)
-                .map_err(|_| input.error("Wrong content found inside [...]"))?;
-            return Ok(FragmentItem::Bracketed(bracketed));
+            parenthesized!(content in input);
+
+            return Ok(parse!(Bracketed, content => {
+                Err(err) => Error {
+                    message: "Wrong content found inside [...]",
+                    fallback: FragmentItem::Error
+                },
+                Ok(bracketed) => FragmentItem::Bracketed(bracketed)
+            }));
         }
 
         if lookahead.peek(token::Brace) {
@@ -40,16 +62,15 @@ impl Parse for FragmentItem {
             return Ok(FragmentItem::Expr(expr));
         }
 
-        let fork = input.fork();
-
-        if let Ok(
-            expr @ ExprLit {
-                lit: Lit::Str(_), ..
-            },
-        ) = fork.parse::<ExprLit>()
-        {
-            input.advance_to(&fork);
-            return Ok(FragmentItem::String(Expr::Lit(expr)));
+        if lookahead.peek(LitStr) {
+            if let Ok(
+                expr @ ExprLit {
+                    lit: Lit::Str(_), ..
+                },
+            ) = input.parse::<ExprLit>()
+            {
+                return Ok(FragmentItem::String(Expr::Lit(expr)));
+            }
         }
 
         Err(input.error("Expected a document fragment"))
@@ -87,27 +108,37 @@ impl ToTokens for FragmentItem {
                     #plain("\n").boxed()
                 }
             }),
+            FragmentItem::Error => tokens.extend(quote_using! {
+                [spectrum::plain, spectrum::Doc] => {
+                    use #Doc;
+
+                    #plain("[ERROR]").boxed()
+                }
+            }),
         }
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Bracketed {
-    style: Ident,
+    style: StyleDescription,
     value: Expr,
 }
 
 #[allow(unused)]
 use spectrum::{plain, styled, Color};
 
+use super::doc::ParseShape;
+
 impl ToTokens for Bracketed {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self { style, value } = self;
 
         tokens.extend(quote_using! {
-            [spectrum::styled, spectrum::Color, spectrum::Doc] => {
+            [spectrum::styled, spectrum::Doc] => {
                 use #Doc;
 
-                #styled((#value), #Color::#style.into()).boxed()
+                #styled((#value), #style).boxed()
             }
         })
     }
@@ -115,7 +146,14 @@ impl ToTokens for Bracketed {
 
 impl Parse for Bracketed {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let style: Ident = input.parse()?;
+        let style = parse!(StyleDescription, input => {
+            Err(err) => Error {
+                message: "invalid style description",
+                fallback: StyleDescription::Color(Ident::new("Red", err.span()))
+            },
+            Ok(desc) => desc
+        });
+        // let style: Ident = input.parse()?;
         let _: token::Colon = input.parse()?;
         let expr: Expr = input.parse()?;
 
@@ -140,7 +178,7 @@ impl Parse for Fragment {
                 break;
             }
 
-            exprs.push(FragmentItem::parse(&input)?);
+            exprs.push(FragmentItem::maybe_parse(&input).must("expected fragment")?);
         }
 
         Ok(Fragment { exprs })

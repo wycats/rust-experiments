@@ -3,10 +3,10 @@ use pretty::DocAllocator;
 
 use crate::{
     render::{Nesting, RenderState},
-    BoxedDoc,
+    BoxedDoc, Doc, GAP,
 };
 
-use super::{Doc, StyledArena, StyledDoc};
+use super::{StyledArena, StyledDoc};
 
 #[derive(Debug, new)]
 pub struct Group {
@@ -14,14 +14,10 @@ pub struct Group {
 }
 
 impl Doc for Group {
-    fn render<'ctx>(
-        &'ctx self,
-        ctx: &'ctx StyledArena<'ctx>,
-        state: RenderState,
-    ) -> StyledDoc<'ctx> {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, state: RenderState) -> StyledDoc<'a> {
         let mut list = ctx.nil();
 
-        for doc in &self.docs {
+        for doc in self.docs.iter() {
             list = list.append(doc.render(ctx, state));
         }
 
@@ -35,14 +31,10 @@ pub struct DocList {
 }
 
 impl Doc for DocList {
-    fn render<'ctx>(
-        &'ctx self,
-        ctx: &'ctx StyledArena<'ctx>,
-        state: RenderState,
-    ) -> StyledDoc<'ctx> {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, state: RenderState) -> StyledDoc<'a> {
         let mut list = ctx.nil();
 
-        for doc in &self.docs {
+        for doc in self.docs.iter() {
             list = list.append(doc.render(ctx, state));
         }
 
@@ -53,17 +45,33 @@ impl Doc for DocList {
 #[derive(Debug, new)]
 pub struct Nested {
     indent: Nesting,
-    structure: Box<dyn Doc>,
-    start_gap: Box<dyn Doc>,
-    end_gap: Box<dyn Doc>,
+    structure: BoxedDoc,
+    start_gap: BoxedDoc,
+    end_gap: BoxedDoc,
+}
+
+impl Nested {
+    pub fn once(structure: impl Doc, start_gap: impl Doc, end_gap: impl Doc) -> Nested {
+        Nested {
+            indent: Nesting::Configured(1),
+            structure: structure.boxed(),
+            start_gap: start_gap.boxed(),
+            end_gap: end_gap.boxed(),
+        }
+    }
+
+    pub fn basic(structure: impl Doc) -> Nested {
+        Nested {
+            indent: Nesting::Configured(1),
+            structure: structure.boxed(),
+            start_gap: GAP().boxed(),
+            end_gap: GAP().boxed(),
+        }
+    }
 }
 
 impl Doc for Nested {
-    fn render<'ctx>(
-        &'ctx self,
-        ctx: &'ctx StyledArena<'ctx>,
-        state: RenderState,
-    ) -> StyledDoc<'ctx> {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, state: RenderState) -> StyledDoc<'a> {
         let Self {
             indent,
             structure,

@@ -40,13 +40,25 @@ pub fn frag(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+#[proc_macro_error]
 #[proc_macro]
 pub fn doc(input: TokenStream) -> TokenStream {
-    let Doc {} = parse_macro_input!(input);
+    let Doc { items } = parse_macro_input!(input);
 
-    let expanded = quote! {{
-        ()
-    }};
+    let expanded = quote_using! {
+        [spectrum::BoxedDoc, spectrum::Doc, spectrum::Group] => {
+            use #Doc;
+
+            #[allow(unused_mut)]
+            let mut vec: Vec<#BoxedDoc> = vec![];
+
+            #(
+                vec.push(#items.boxed());
+            )*
+
+            #Group::new(vec)
+        }
+    };
 
     TokenStream::from(expanded)
 }

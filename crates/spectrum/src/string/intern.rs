@@ -1,120 +1,80 @@
-use std::{borrow::Cow, fmt::Display, marker::PhantomData, pin::Pin};
+use std::{fmt, fmt::Debug, hash::Hash};
 
 use bimap::BiMap;
+use format::Display;
 
-use super::copy_string::{Repr, StringContext};
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum StringId<'a> {
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub enum StringId {
     Id(usize),
-    String(&'a str),
+    Literal(&'static str),
 }
 
-impl<'a> From<StringId<'a>> for Repr<'a, StringArena<'a>> {
-    fn from(id: StringId<'a>) -> Self {
-        Repr::new(id)
+impl Into<StringId> for &'static str {
+    fn into(self) -> StringId {
+        StringId::Literal(self)
     }
 }
 
-impl<'a> From<Repr<'a, StringArena<'a>>> for StringId<'a> {
-    fn from(id: Repr<'a, StringArena<'a>>) -> Self {
-        id.value()
-    }
+pub struct InternInternal {
+    id_num: usize,
+    map: BiMap<StringId, String>,
 }
 
-impl<'a> From<&'a str> for StringId<'a> {
-    fn from(s: &'a str) -> Self {
-        StringId::String(s)
-    }
+pub struct Intern {
+    intern: InternInternal,
 }
 
-#[derive(Debug, Clone)]
-pub struct StringArena<'a> {
-    id: usize,
-    map: Pin<Box<BiMap<String, usize>>>,
-    lt: PhantomData<&'a ()>,
-}
-
-impl<'a> Default for StringArena<'a> {
+impl Default for Intern {
     fn default() -> Self {
-        StringArena {
-            id: 0,
-            map: Pin::new(Box::new(BiMap::new())),
-            lt: PhantomData,
-        }
+        Intern::new()
     }
 }
 
-impl<'a> StringArena<'a> {
-    pub fn intern(&mut self, s: impl Display + 'a) -> Repr<'a, StringArena<'a>> {
-        let s = format!("{}", s);
-
-        if let Some(id) = self.map.get_by_left(&s) {
-            return Repr::new(StringId::Id(*id));
-        }
-
-        let id = self.next_id();
-        self.map.insert(s, id);
-        Repr::new(StringId::Id(id))
-    }
-
-    fn get<'b>(&'b self, s: StringId<'a>) -> Cow<'b, str>
-    where
-        'a: 'b,
-    {
-        match s {
-            StringId::Id(id) => {
-                let value = self.map.get_by_right(&id).expect(
-                    "Once a StringId has been given out for an arena, it should always be valid",
-                );
-
-                Cow::Borrowed(value)
-            }
-            StringId::String(s) => Cow::Borrowed(s),
+impl Intern {
+    pub fn new() -> Intern {
+        Intern {
+            intern: InternInternal {
+                id_num: 0,
+                map: BiMap::new(),
+            },
         }
     }
 
-    fn next_id(&mut self) -> usize {
-        let id = self.id;
-        self.id += 1;
+    pub fn get(&self, id: StringId) -> &str {
+        self.intern.map.get_by_left(&id).unwrap()
+    }
+
+    pub fn intern(&mut self, string: impl Into<String>) -> StringId {
+        let string = string.into();
+        let intern = &mut self.intern;
+
+        if let Some(id) = intern.map.get_by_right(&string) {
+            return *id;
+        }
+
+        let next = intern.id_num + 1;
+        intern.id_num = next;
+        let id = StringId::Id(next);
+        intern.map.insert(id, string);
         id
     }
 }
 
-pub enum StringArenaInput<'a> {
-    #[allow(unused)]
-    String(String),
-    Str(&'a str),
-    #[allow(unused)]
-    Id(StringId<'a>),
-}
-
-impl<'a> From<&'a str> for StringArenaInput<'a> {
-    fn from(input: &'a str) -> Self {
-        StringArenaInput::Str(input)
+pub trait DerefInternedString {
+    fn fmt_interned(&self, f: &mut std::fmt::Formatter<'_>, intern: &Intern) -> fmt::Result;
+    fn interned_string(&self, intern: &Intern) -> String {
+        format!("{}", Display(move |f| self.fmt_interned(f, intern)))
     }
 }
 
-impl<'a> StringContext<'a> for StringArena<'a> {
-    type CustomRepr = StringId<'a>;
-    type ValidInput = String;
-
-    fn repr_as_string<'b>(&'b self, id: Repr<'a, Self>) -> Cow<'b, str>
-    where
-        'a: 'b,
-    {
-        self.get(id.value())
-    }
-
-    fn take(&mut self, value: impl Into<Self::ValidInput> + 'a) -> Repr<'a, Self> {
-        self.intern(value.into())
+impl DerefInternedString for String {
+    fn fmt_interned(&self, f: &mut fmt::Formatter<'_>, _intern: &Intern) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
-// impl From<StringId> for Structure<StringArena> {
-//     fn from(id: StringId) -> Self {
-//         Structure::Primitive(Primitive::Fragment(
-//             StyledString::custom(id, Style::default()).into(),
-//         ))
-//     }
-// }
+impl DerefInternedString for &str {
+    fn fmt_interned(&self, f: &mut fmt::Formatter<'_>, _intern: &Intern) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}

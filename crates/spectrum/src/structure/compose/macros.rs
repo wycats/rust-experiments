@@ -31,17 +31,17 @@ macro_rules! list_impl {
 }
 
 #[macro_export]
-macro_rules! doc {
+macro_rules! document {
     ($name:ident as $struct_name:ident |$ctx:pat, $state:pat| $expr:expr) => {
-        doc! { generate => $name as $struct_name lt = {} plus = {} struct = { ; } args = {} |_, $ctx, $state| $expr }
+        document! { generate => $name as $struct_name lt = {} plus = {} struct = { ; } args = {} |_, $ctx, $state| $expr }
     };
 
     ($name:ident as $struct_name:ident { $($arg:ident : $arg_ty:ty),* } |$this:pat, $ctx:pat, $state:pat| $expr:expr) => {
-        doc! { generate => $name as $struct_name lt = {} plus = {} struct = { { $($arg : $arg_ty),* } } args = { $($arg : $arg_ty),* } |$this, $ctx, $state| $expr }
+        document! { generate => $name as $struct_name lt = {} plus = {} struct = { { $($arg : $arg_ty),* } } args = { $($arg : $arg_ty),* } |$this, $ctx, $state| $expr }
     };
 
     ($name:ident as $struct_name:ident <$lt:tt> { $($arg:ident : $arg_ty:ty),* } |$this:pat, $ctx:pat, $state:pat| $expr:expr) => {
-        doc! { generate => $name as $struct_name lt = { <$lt> } plus = { + $lt } struct = { { $($arg : $arg_ty),* } } args = { $($arg : $arg_ty),* } |$this, $ctx, $state| $expr }
+        document! { generate => $name as $struct_name lt = { <$lt> } plus = { + $lt } struct = { { $($arg : $arg_ty),* } } args = { $($arg : $arg_ty),* } |$this, $ctx, $state| $expr }
     };
 
     (generate => $name:ident as $struct_name:ident lt = { $($lt:tt)* } plus = { $($plus:tt)* } struct = { $struct:tt } args = { $($arg:ident : $arg_ty:ty),* } |$this:pat, $ctx:pat, $state:pat| $expr:expr) => {
@@ -49,7 +49,7 @@ macro_rules! doc {
         pub struct $struct_name $($lt)* $struct
 
         impl $($lt)* $crate::structure::compose::Doc for $struct_name $($lt)* {
-            fn render<'ctx>(&'ctx self, $ctx: &'ctx StyledArena<'ctx>, $state: $crate::render::RenderState) -> StyledDoc<'ctx> {
+            fn render<'ctx>(&'ctx self, $ctx: &'ctx StyledArena<'ctx>, $state: $crate::render::RenderState) -> StyledDoc<'ctx> where Self: 'ctx {
                 let $this = self;
 
                 $expr
@@ -75,14 +75,16 @@ macro_rules! either {
 
 #[macro_export]
 macro_rules! nest {
-    ({ $($structure:tt)* } before = $start_gap:expr; after = $end_gap:expr; ) => {
+    ({ $($structure:tt)* } before = $start_gap:expr; after = $end_gap:expr; ) => {{
+        use $crate::Doc;
+
         $crate::structure::compose::list::Nested::new(
             $crate::structure::render::Nesting::Configured(1),
-            Box::new($crate::list![$($structure)*]),
-            Box::new($start_gap),
-            Box::new($end_gap),
+            ($crate::list![$($structure)*]).boxed(),
+            ($start_gap).boxed(),
+            ($end_gap).boxed(),
         )
-    };
+    }};
 }
 
 #[macro_export]

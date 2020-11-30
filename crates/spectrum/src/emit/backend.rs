@@ -1,6 +1,10 @@
 use std::{fmt, fmt::Formatter, io::Write};
 
-use crate::{compose::Doc, RenderConfig, RenderContext};
+use crate::{
+    compose::{Doc, StyledArena},
+    string::intern::Intern,
+    Fragment, RenderConfig, RenderContext,
+};
 
 use super::{
     buf::Buf,
@@ -10,8 +14,15 @@ use super::{
 
 /// An implementation of `EmitBackendTrait` takes a piece of styled text and emits it into the
 /// supplied [std::fmt::Formatter].
-pub trait EmitBackendTrait {
+pub trait EmitBackendTrait: 'static {
     fn emit(&self, f: &mut Formatter<'_>, fragment: &str, style: Style) -> EmitResult;
+
+    fn emit_styled(&self, f: &mut Formatter<'_>, styled: Fragment, intern: &Intern) -> EmitResult
+    where
+        Self: Sized,
+    {
+        self.emit(f, intern.get(styled.id()), styled.style())
+    }
 
     fn emit_string(&self, fragment: &str, style: Style) -> String {
         Buf::collect_string(|write| {
@@ -31,14 +42,17 @@ pub trait EmitBackendTrait {
         Self: Sized,
     {
         Buf::collect_string(|writer| {
-            let mut context = RenderContext::new(writer);
-            context.render(text, self, RenderConfig::width(page_size))?;
+            let intern = Intern::new();
+            let arena = StyledArena::new(&intern);
+            let mut context = RenderContext::new(arena);
+            context.render(text, self, writer, RenderConfig::width(page_size))?;
 
             Ok(())
         })
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct EmitColored;
 
 impl EmitBackendTrait for EmitColored {
@@ -47,6 +61,7 @@ impl EmitBackendTrait for EmitColored {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct EmitPlain;
 
 impl EmitBackendTrait for EmitPlain {
@@ -72,32 +87,26 @@ mod tests {
     use console::Color;
 
     #[test]
-    fn emit_test() -> EmitResult {
+    fn emit_test() {
         assert_eq!(
             EmitForTest.emit_string("hello emitter world", Color::Red.into()),
             "[Red:hello emitter world]"
         );
-
-        Ok(())
     }
 
     #[test]
-    fn emit_plain() -> EmitResult {
+    fn emit_plain() {
         assert_eq!(
             EmitPlain.emit_string("hello emitter world", Color::Red.into()),
             "hello emitter world"
         );
-
-        Ok(())
     }
 
     #[test]
-    fn emit_colored() -> EmitResult {
+    fn emit_colored() {
         assert_eq!(
             EmitColored.emit_string("hello emitter world", Color::Red.into()),
             "\u{1b}[31mhello emitter world\u{1b}[0m"
         );
-
-        Ok(())
     }
 }

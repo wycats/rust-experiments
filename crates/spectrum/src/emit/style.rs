@@ -228,6 +228,10 @@ impl Style {
         self
     }
 
+    pub fn bold(self) -> Style {
+        self.attr(console::Attribute::Bold)
+    }
+
     pub fn attrs(mut self, attrs: impl Into<Attributes>) -> Style {
         self.attrs |= attrs.into();
         self
@@ -275,6 +279,10 @@ impl Debug for Style {
             }
         }
 
-        write!(f, "{}{}", desc, attrs)
+        if attrs.is_empty() {
+            write!(f, "{}", desc)
+        } else {
+            write!(f, "{}, {}", desc, attrs)
+        }
     }
 }

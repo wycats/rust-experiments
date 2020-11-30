@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use console::Color::{Green, Red};
 use spectrum::{compose::BoxedDoc, EmitBackendTrait, EmitForTest, EmitPlain, EmitResult};
 use spectrum_macros::frag;
 
@@ -14,7 +15,7 @@ fn color(frag: &BoxedDoc) -> EmitResult<String> {
 }
 
 macro_rules! test_case {
-    (( $($frag:tt)* ) => plain: $plain:tt => colored: $colored:tt) => {
+    ({ $($frag:tt)* } => plain: $plain:tt => colored: $colored:tt) => {
         assert_eq!(&plain(&frag!($($frag)*))?, $plain);
         assert_eq!(&color(&frag!($($frag)*))?, $colored);
     };
@@ -42,19 +43,19 @@ fn test_line() -> EmitResult {
     //     value: "Niko".to_string(),
     // };
 
-    test_case!([Red: "hello"]
+    test_case![ (Red: "hello")
         => plain: "hello"
-        => colored: "[Red:hello]" );
+        => colored: "[Red:hello]" ];
 
     test_case!("hello"
         => plain: "hello"
         => colored: "[normal:hello]" );
 
-    test_case!(([Red: "hello"] [Green: "world"])
+    test_case!({ (Red: "hello") (Green: "world") }
         => plain: "helloworld"
         => colored: "[Red:hello][Green:world]" );
 
-    test_case!(([Red: "hello"] {value.0} [Green: "world"])
+    test_case!( { (Red: "hello") {value.0} (Green: "world") }
         => plain: "helloouter-valueworld"
         => colored: "[Red:hello][normal:outer-value][Green:world]" );
 
@@ -76,19 +77,19 @@ fn test_block() -> EmitResult {
     //     value: "Niko".to_string(),
     // };
 
-    test_case!(( [Red: "hello"] ; [Green: "world"] )
+    test_case!({ (Red: "hello") ; (Green: "world") }
         => plain: "hello\nworld"
         => colored: "[Red:hello]\n[Green:world]" );
 
-    test_case!(( "hello" ; "world" )
+    test_case!({ "hello" ; "world" }
         => plain: "hello\nworld"
         => colored: "[normal:hello]\n[normal:world]" );
 
-    test_case!(([Red: "hello"] [Green: "world"] ; [Red: "goodbye"] "world")
+    test_case!({ (Red: "hello") (Green: "world") ; (Red: "goodbye") "world" }
         => plain: "helloworld\ngoodbyeworld"
         => colored: "[Red:hello][Green:world]\n[Red:goodbye][normal:world]" );
 
-    test_case!(([Red: "hello"] {value.0} [Green: "world"] ; [Red: "goodbye"] {value.1} [Green: "world"])
+    test_case!({ (Red: "hello") {value.0} (Green: "world") ; (Red: "goodbye") {value.1} (Green: "world") }
         => plain: "hellovalue-1world\ngoodbyevalue-2world"
         => colored: "[Red:hello][normal:value-1][Green:world]\n[Red:goodbye][normal:value-2][Green:world]" );
 

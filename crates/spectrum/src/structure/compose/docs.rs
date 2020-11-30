@@ -1,52 +1,113 @@
+use derive_new::new;
 use pretty::DocAllocator;
 
-use crate::{render::RenderState, Style};
+use crate::{render::RenderState, string::intern::Intern, string::intern::StringId, Style};
 
-use super::{BoxedDoc, Doc, Styled};
+use super::{BoxedDoc, Doc, Fragment};
 use super::{StyledArena, StyledDoc};
 
-doc! {
-    plain as Plain<'a> { string: &'a str }
-    |plain, ctx, _| ctx.text(plain.string).annotate(Styled::plain(plain.string))
+#[derive(Debug)]
+pub struct Plain {
+    string: StringId,
 }
 
-doc! {
-    styled as StyledFragment<'a> { string: &'a str, style: Style }
-    |styled, ctx, _| ctx.text(styled.string).annotate(Styled::str(styled.string, styled.style))
+impl Doc for Plain {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, _state: RenderState) -> StyledDoc<'a> {
+        ctx.text(ctx.get_str(self.string))
+            .annotate(Fragment::plain(self.string))
+    }
 }
+
+pub fn plain(string: impl Into<StringId>) -> Plain {
+    Plain {
+        string: string.into(),
+    }
+}
+
+// document! {
+//     plain as Plain<'a> { string: &'a str }
+//     |plain, ctx, _| ctx.text(plain.string).annotate(Styled::plain(plain.string))
+// }
+
+pub trait InternedStyledFragment {
+    fn intern(self, intern: &mut Intern) -> StyledFragment;
+}
+
+#[derive(Debug, new)]
+pub struct StyledFragment {
+    string: StringId,
+    style: Style,
+}
+
+impl Doc for StyledFragment {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, _state: RenderState) -> StyledDoc<'a> {
+        ctx.text(ctx.get_str(self.string))
+            .annotate(Fragment::new(self.string, self.style))
+    }
+}
+
+pub fn styled(string: impl Into<StringId>, style: Style) -> StyledFragment {
+    StyledFragment {
+        string: string.into(),
+        style,
+    }
+}
+
+// document! {
+//     styled as StyledFragment<'a> { string: &'a str, style: Style }
+//     |styled, ctx, _| ctx.text(styled.string).annotate(Styled::str(styled.string, styled.style))
+// }
 
 #[derive(Debug)]
 struct HardLine;
 
 impl Doc for HardLine {
-    fn render<'ctx>(
-        &'ctx self,
-        ctx: &'ctx StyledArena<'ctx>,
-        _state: RenderState,
-    ) -> StyledDoc<'ctx> {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, _state: RenderState) -> StyledDoc<'a> {
         ctx.hardline()
     }
 }
 
-doc! {
-    either as Either { inline: BoxedDoc, block: BoxedDoc }
-    |either, ctx, state| either.block.render(ctx, state).flat_alt(either.inline.render(ctx, state))
+#[derive(Debug)]
+pub struct Either {
+    inline: BoxedDoc,
+    block: BoxedDoc,
+}
+
+impl Doc for Either {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, state: RenderState) -> StyledDoc<'a> {
+        self.block
+            .render(ctx, state)
+            .flat_alt(self.inline.render(ctx, state))
+    }
+}
+
+pub fn either(inline: BoxedDoc, block: BoxedDoc) -> Either {
+    Either { inline, block }
 }
 
 impl Doc for Box<dyn Doc> {
-    fn render<'ctx>(
-        &'ctx self,
-        ctx: &'ctx StyledArena<'ctx>,
-        state: RenderState,
-    ) -> StyledDoc<'ctx> {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, state: RenderState) -> StyledDoc<'a> {
         Doc::render(&**self, ctx, state)
     }
 }
 
-doc! {
-    empty as Empty
-    |ctx, _| ctx.nil()
+#[derive(Debug)]
+pub struct Empty;
+
+impl Doc for Empty {
+    fn render<'a>(&self, ctx: &'a StyledArena<'a>, _state: RenderState) -> StyledDoc<'a> {
+        ctx.nil()
+    }
 }
+
+pub fn empty() -> Empty {
+    Empty
+}
+
+// document! {
+//     empty as Empty
+//     |ctx, _| ctx.nil()
+// }
 
 /// A GAP is a space when laid out inline, or a hard line when laid out as a block
 pub fn GAP() -> BoxedDoc {
@@ -75,7 +136,7 @@ mod tests {
     use console::Color;
 
     use crate::{
-        emit::buf::Buf, prelude::test::*, render::RenderConfig,
+        emit::buf::Buf, prelude::test::*, render::RenderConfig, string::intern::Intern,
         structure::compose::render_context::RenderContext, structure::compose::Doc, EmitForTest,
     };
 
@@ -84,14 +145,12 @@ mod tests {
     #[test]
     fn test_plain() -> TestResult {
         struct Stringy {
-            string: String,
+            string: &'static str,
         }
 
-        let stringy = Stringy {
-            string: "Hi niko!".to_string(),
-        };
+        let stringy = Stringy { string: "Hi niko!" };
 
-        let text = plain(&stringy.string);
+        let text = plain(stringy.string);
 
         assert_eq!(render(&text)?, "[normal:Hi niko!]");
 
@@ -127,8 +186,10 @@ mod tests {
 
     fn render(text: &impl Doc) -> Result<String, std::fmt::Error> {
         Buf::collect_string(|writer| {
-            let mut context = RenderContext::new(writer);
-            context.render(text, EmitForTest, RenderConfig::width(80))?;
+            let intern = Intern::new();
+            let arena = StyledArena::new(&intern);
+            let mut context = RenderContext::new(arena);
+            context.render(text, EmitForTest, writer, RenderConfig::width(80))?;
 
             Ok(())
         })

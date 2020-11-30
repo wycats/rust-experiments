@@ -41,7 +41,7 @@ macro_rules! quote_using {
                 $($stmt)*
                 {
                     #[allow(non_snake_case)]
-                    let tt_call! { macro = [{ tail }] path = [{ $head $(:: $import)* }] } = quote! { $head $(:: $import)* };
+                    let $crate::tt_call! { macro = [{ tail }] path = [{ $head $(:: $import)* }] } = $crate::quote! { $head $(:: $import)* };
                 }
             }
             rest = {

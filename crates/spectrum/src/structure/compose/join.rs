@@ -1,32 +1,32 @@
 use derive_new::new;
 use pretty::DocAllocator;
 
-use crate::NonemptyList;
+use crate::{BoxedDoc, NonemptyList};
 
-use super::Doc;
+use super::{Doc, StyledArena, StyledDoc};
 
 #[derive(Debug, new)]
 pub struct JoinList {
-    delimiter: Box<dyn Doc>,
-    items: NonemptyList<Box<dyn Doc>>,
+    delimiter: BoxedDoc,
+    items: NonemptyList<BoxedDoc>,
     trailing: bool,
 }
 
 impl Doc for JoinList {
-    fn render<'ctx>(
-        &'ctx self,
-        ctx: &'ctx super::StyledArena<'ctx>,
+    fn render<'a>(
+        &self,
+        ctx: &'a StyledArena<'a>,
         state: crate::render::RenderState,
-    ) -> super::StyledDoc<'ctx> {
+    ) -> StyledDoc<'a> {
         let mut list = ctx.nil();
 
         for item in self.items.iter() {
             let is_last = item.is_last();
 
-            list = list.append(item.value().render(ctx, state));
+            list = list.append(item.value().render(&ctx, state));
 
             if !is_last || self.trailing {
-                list = list.append(self.delimiter.render(ctx, state));
+                list = list.append(self.delimiter.render(&ctx, state));
             }
         }
 

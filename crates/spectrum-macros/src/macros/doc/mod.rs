@@ -1,71 +1,41 @@
+#[macro_use]
+mod helper_macros;
+
 mod group;
+mod item;
+pub(crate) mod maybe;
+mod nested;
 
-use syn::parse::discouraged::Speculative;
-use syn::{
-    parse::{Parse, ParseStream},
-    Ident,
-};
+use syn::parse::{Parse, ParseStream};
 
-use super::fragment::FragmentItem;
+pub(crate) use self::maybe::{ParseOutcome, ParseShape};
 
-pub(crate) struct Doc {}
+use self::item::DocItem;
+
+pub(crate) struct Doc {
+    pub(crate) items: Vec<DocItem>,
+}
+
+sealed!(Doc);
+
+impl ParseShape for Doc {}
 
 impl Parse for Doc {
-    fn parse(_input: ParseStream) -> syn::Result<Self> {
-        Ok(Doc {})
-    }
-}
-
-#[allow(unused)]
-pub(crate) enum DocItem {
-    Item(FragmentItem),
-    List(ListItem),
-    Group(GroupItem),
-    Either {
-        inline: Box<DocItem>,
-        block: Box<DocItem>,
-    },
-    Single(SingleItem),
-}
-
-#[allow(unused)]
-pub struct ListItem {
-    items: Vec<DocItem>,
-}
-
-#[allow(unused)]
-pub struct GroupItem {
-    items: Vec<DocItem>,
-}
-
-pub enum SingleItem {
-    Gap,
-    GapHint,
-    Boundary,
-    BoundaryHint,
-}
-
-impl Parse for SingleItem {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let fork = input.fork();
+        let mut items: Vec<DocItem> = vec![];
 
-        let ident: Ident = fork.parse()?;
+        loop {
+            traceln!(false, "checking if empty?");
+            if input.is_empty() {
+                traceln!(false, "empty!");
+                break;
+            }
 
-        let id = if ident == "GAP" {
-            SingleItem::Gap
-        } else if ident == "GAP_HINT" {
-            SingleItem::GapHint
-        } else if ident == "BOUNDARY" {
-            SingleItem::Boundary
-        } else if ident == "BOUNDARY_HINT" {
-            SingleItem::BoundaryHint
-        } else {
-            return Err(fork.error("Expected document item"));
-        };
+            traceln!(false, "not empty!");
+            items.push(DocItem::parse(&input)?);
+        }
 
-        input.advance_to(&fork);
-
-        Ok(id)
+        Ok(Doc { items })
     }
 }
 
